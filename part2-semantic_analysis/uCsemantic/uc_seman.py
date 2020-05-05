@@ -196,6 +196,55 @@ class ScopedSymbolTable(object):
 ####################################################
 #                SEMANTIC ANALYSIS                #
 ####################################################
-#TODO
-# class SemanticAnalyzer(NodeVisitor):
-# class Interpreter(NodeVisitor):
+
+class SemanticAnalyzer(NodeVisitor):
+    '''
+    Program visitor class. This class uses the visitor pattern. You need to define methods
+    of the form visit_NodeName() for each kind of AST node that you want to process.
+    '''
+    def __init__(self):
+        self.current_scope = None
+
+    def visit_Program(self,node): #TODO test if this works
+        global_scope = ScopedSymbolTable(
+            scope_name='global',
+            scope_level=1,
+            enclosing_scope=self.current_scope, # None
+        )
+        global_scope._init_builtins()
+        self.current_scope = global_scope
+
+        # 1. Visit all of the global declarations
+        # 2. Record the associated symbol table
+        for _decl in node.gdecls:
+            self.visit(_decl)
+
+        self.current_scope = self.current_scope.enclosing_scope
+    
+    def visit_BinaryOp(self, node): #TODO test if this works
+        # 1. Make sure left and right operands have the same type
+        # 2. Make sure the operation is supported
+        # 3. Assign the result type
+        self.visit(node.left)
+        left_type = node.left.names[-1]
+        self.visit(node.right)
+        right_type = node.right.names[-1]
+        
+        _line = f"{node.coord.line}:{node.coord.column} - "
+        assert left_type == right_type, _line + f"Binary operator {node.op} does not match types"
+        if node.op in (left_type.binary_ops or left_type.rel_ops):
+            node.type = node.left.type
+
+    def visit_Assignment(self, node): #TODO check if this works
+        _line = f"{node.coord.line}:{node.coord.column} - "
+
+        self.visit(node.rvalue)
+        right_type = node.rvalue.type.names
+        _var = node.lvalue
+        self.visit(_var)
+        ## 1. Make sure the location of the assignment is defined
+        sym = self.current_scope.lookup(_var.name)
+        assert sym, "Assigning to unknown symbol"
+        ## Match lside e rside
+        left_type = node.lvalue.type.names
+        assert left_type == right_type, _line + f"Cannot assign {right_type} to {left_type}"
