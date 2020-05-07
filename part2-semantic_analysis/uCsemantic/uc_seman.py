@@ -1,6 +1,7 @@
 # uc Semantic Analysis #
 
-import uc_ast
+from uc_ast import *
+from uc_parser import UCParser
 
 ###################################
 #           AST visitor           #
@@ -143,14 +144,16 @@ class PtrSymbol(Symbol):
     __repr__ = __str__
 
 class FuncSymbol(Symbol):
-    def __init__(self, name, type):
-            super().__init__(name, type)
+    def __init__(self, name, params=None):
+        super().__init__(name)
+        # a list of formal parameters
+        self.params = params if params is not None else []
 
     def __str__(self):
-        return "<{class_name}(name='{name}', type='{type}')>".format(
+        return '<{class_name}(name={name}, parameters={params})>'.format(
             class_name=self.__class__.__name__,
             name=self.name,
-            type=self.type,
+            params=self.params,
         )
 
     __repr__ = __str__
@@ -248,3 +251,43 @@ class SemanticAnalyzer(NodeVisitor):
         ## Match lside e rside
         left_type = node.lvalue.type.names
         assert left_type == right_type, _line + f"Cannot assign {right_type} to {left_type}"
+
+    def visit_Decl(self, node):
+        print("oi")
+        name = node.name.name
+        self.visit(node.name)
+        print(name)
+        _temp = self.current_scope.lookup(name)
+        assert not _temp, f"{name} declared multiple times"
+
+        self.visit(node.type)
+        print("oi3")
+        if node.init:
+            self.visit(node.init)
+            const_type = node.init.type
+            assert const_type == node.type, f"type not match"
+
+        #self.current_scope.insert()
+
+    def visit_GlobalDecl(self, node):
+        for i in node.decls:
+            self.visit(i)
+    
+
+
+def main():
+    import sys
+    text = open(sys.argv[1], 'r').read()
+
+    parser = UCParser()
+    tree = parser.parse(text)
+
+    semantic_analyzer = SemanticAnalyzer()
+    try:
+        semantic_analyzer.visit(tree)
+    except Exception as e:
+        print(e)
+
+
+if __name__ == '__main__':
+    main()
