@@ -1,6 +1,7 @@
 # uc Semantic Analysis #
 
-import uc_ast
+from uc_ast import *
+from uc_parser import UCParser
 
 ###################################
 #           AST visitor           #
@@ -51,7 +52,7 @@ class uCType(Symbol):
                  binary_ops=None, unary_ops=None,
                  rel_ops=None, assign_ops=None):
         
-        super().__init__(typename, self)   # TODO look if it works, uCtype its like a BuiltIn, so its also a symbol.
+        super().__init__(typename)   # TODO look if it works, uCtype its like a BuiltIn, so its also a symbol.
        
         self.typename = typename
         self.unary_ops = unary_ops or set()
@@ -143,14 +144,16 @@ class PtrSymbol(Symbol):
     __repr__ = __str__
 
 class FuncSymbol(Symbol):
-    def __init__(self, name, type):
-            super().__init__(name, type)
+    def __init__(self, name, params=None):
+        super().__init__(name)
+        # a list of formal parameters
+        self.params = params if params is not None else []
 
     def __str__(self):
-        return "<{class_name}(name='{name}', type='{type}')>".format(
+        return '<{class_name}(name={name}, parameters={params})>'.format(
             class_name=self.__class__.__name__,
             name=self.name,
-            type=self.type,
+            params=self.params,
         )
 
     __repr__ = __str__
@@ -177,9 +180,11 @@ class ScopedSymbolTable(object):
         self.insert(VoidType)
 
     def insert(self, symbol):
+        print('Insert: %s' % symbol.name)
         self._symbols[symbol.name] = symbol
 
     def lookup(self, name, current_scope_only=False):
+        print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
         # 'symbol' is either an instance of the Symbol class or None
         symbol = self._symbols.get(name)
 
@@ -206,6 +211,7 @@ class SemanticAnalyzer(NodeVisitor):
         self.current_scope = None
 
     def visit_Program(self,node): #TODO test if this works
+        print('ENTER scope: global')
         global_scope = ScopedSymbolTable(
             scope_name='global',
             scope_level=1,
@@ -219,32 +225,49 @@ class SemanticAnalyzer(NodeVisitor):
         for _decl in node.gdecls:
             self.visit(_decl)
 
+        print(global_scope)
+
         self.current_scope = self.current_scope.enclosing_scope
-    
-    def visit_BinaryOp(self, node): #TODO test if this works
-        # 1. Make sure left and right operands have the same type
-        # 2. Make sure the operation is supported
-        # 3. Assign the result type
-        self.visit(node.left)
-        left_type = node.left.names[-1]
-        self.visit(node.right)
-        right_type = node.right.names[-1]
+        print('LEAVE scope: global')
+
+
+    def visit_Decl(self, node):
+        name = node.name.name
+        self.visit(node.name)
+        _temp = self.current_scope.lookup(name)
+        assert not _temp, f"{name} declared multiple times"
+        self.visit(node.type)
         
-        _line = f"{node.coord.line}:{node.coord.column} - "
-        assert left_type == right_type, _line + f"Binary operator {node.op} does not match types"
-        if node.op in (left_type.binary_ops or left_type.rel_ops):
-            node.type = node.left.type
+        if node.init:
+            self.visit(node.init)
+            const_type = node.init.type
+            assert const_type == node.type.type.names[0], f"type not match"
 
-    def visit_Assignment(self, node): #TODO check if this works
-        _line = f"{node.coord.line}:{node.coord.column} - "
 
-        self.visit(node.rvalue)
-        right_type = node.rvalue.type.names
-        _var = node.lvalue
-        self.visit(_var)
-        ## 1. Make sure the location of the assignment is defined
-        sym = self.current_scope.lookup(_var.name)
-        assert sym, "Assigning to unknown symbol"
-        ## Match lside e rside
-        left_type = node.lvalue.type.names
-        assert left_type == right_type, _line + f"Cannot assign {right_type} to {left_type}"
+    def visit_GlobalDecl(self, node):
+        for i in node.decls:
+            self.visit(i)
+    
+    def visit_VarDecl(self, node):
+        var_name = node.declname.name
+        type_symbol = self.current_scope.lookup(node.type.names[0])
+        var_symbol = VarSymbol(var_name, type_symbol)
+
+        self.current_scope.insert(var_symbol)
+
+def main():
+    import sys
+    text = open(sys.argv[1], 'r').read()
+
+    parser = UCParser()
+    tree = parser.parse(text)
+
+    semantic_analyzer = SemanticAnalyzer()
+    try:
+        semantic_analyzer.visit(tree)
+    except Exception as e:
+        print(e)
+
+
+if __name__ == '__main__':
+    main()
