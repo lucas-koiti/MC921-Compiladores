@@ -52,7 +52,7 @@ class uCType(Symbol):
                  binary_ops=None, unary_ops=None,
                  rel_ops=None, assign_ops=None):
         
-        super().__init__(typename, self)   # TODO look if it works, uCtype its like a BuiltIn, so its also a symbol.
+        super().__init__(typename)   # TODO look if it works, uCtype its like a BuiltIn, so its also a symbol.
        
         self.typename = typename
         self.unary_ops = unary_ops or set()
@@ -180,9 +180,11 @@ class ScopedSymbolTable(object):
         self.insert(VoidType)
 
     def insert(self, symbol):
+        print('Insert: %s' % symbol.name)
         self._symbols[symbol.name] = symbol
 
     def lookup(self, name, current_scope_only=False):
+        print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
         # 'symbol' is either an instance of the Symbol class or None
         symbol = self._symbols.get(name)
 
@@ -209,6 +211,7 @@ class SemanticAnalyzer(NodeVisitor):
         self.current_scope = None
 
     def visit_Program(self,node): #TODO test if this works
+        print('ENTER scope: global')
         global_scope = ScopedSymbolTable(
             scope_name='global',
             scope_level=1,
@@ -222,8 +225,11 @@ class SemanticAnalyzer(NodeVisitor):
         for _decl in node.gdecls:
             self.visit(_decl)
 
+        print(global_scope)
+
         self.current_scope = self.current_scope.enclosing_scope
-    
+        print('LEAVE scope: global')
+
     def visit_BinaryOp(self, node): #TODO test if this works
         # 1. Make sure left and right operands have the same type
         # 2. Make sure the operation is supported
@@ -253,27 +259,28 @@ class SemanticAnalyzer(NodeVisitor):
         assert left_type == right_type, _line + f"Cannot assign {right_type} to {left_type}"
 
     def visit_Decl(self, node):
-        print("oi")
         name = node.name.name
         self.visit(node.name)
-        print(name)
         _temp = self.current_scope.lookup(name)
         assert not _temp, f"{name} declared multiple times"
-
         self.visit(node.type)
-        print("oi3")
+        
         if node.init:
             self.visit(node.init)
             const_type = node.init.type
-            assert const_type == node.type, f"type not match"
+            assert const_type == node.type.type.names[0], f"type not match"
 
-        #self.current_scope.insert()
 
     def visit_GlobalDecl(self, node):
         for i in node.decls:
             self.visit(i)
     
+    def visit_VarDecl(self, node):
+        var_name = node.declname.name
+        type_symbol = self.current_scope.lookup(node.type.names[0])
+        var_symbol = VarSymbol(var_name, type_symbol)
 
+        self.current_scope.insert(var_symbol)
 
 def main():
     import sys
