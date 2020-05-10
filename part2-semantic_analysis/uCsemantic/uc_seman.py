@@ -295,35 +295,35 @@ class SemanticAnalyzer(NodeVisitor):
         _temp = self.current_scope.lookup(name)
         assert not _temp, f"{name} declared multiple times"
         
+        # check if the declaration has an init value
         if node.init:
             # InitList is an array initialized
             if isinstance(node.init, InitList):
                 # check if the array index is a int type
-                if isinstance(node.type.dim, ID):                       #TODO COMPARAR DIMENSAO COM INDEX SENDO UM ID, NAO HÁ VALOR
-                # if the index is a variable, look up for its type
-                    dim_type = self.current_scope.lookup(node.type.dim.name)
-                    assert dim_type.type.name == "int", f"array index must be of type int"
-                else:
-                    assert node.type.dim.type == "int", f"array index must be of type int"
-                    # check if the init dimension is equal to the array size
-                    dim = len(node.init.exprs)     
-                    assert dim == node.type.dim.value, _line + f"size mismatch on initialization"
-                    # check if there is a different type declared inside the array 
-                    for i in range(dim):
-                        assert node.init.exprs[i].type == node.type.type.type.names[0], f"array contain a different type from initialization"
+                assert not isinstance(node.type.dim, ID), f"ERROR: the index is not support by the language"  
+                assert node.type.dim.type == "int", f"Array index must be of type int"
+                # check if the init dimension is equal to the array size
+                dim = len(node.init.exprs)     
+                assert dim == node.type.dim.value, _line + f"Size mismatch on initialization"
+                # check if there is a different type declared inside the array 
+                for i in range(dim):
+                    assert node.init.exprs[i].type == node.type.type.type.names[0], f"Array contain a different type from initialization"
             
             # Constant can derives from a VarDecl or a String (ArrayDecl)
             elif isinstance(node.init, Constant):    
+                # Array
                 if isinstance(node.type, VarDecl):
                     const_type = node.init.type
-                    assert const_type == node.type.type.names[0], _line + f"type not match"
+                    assert const_type == node.type.type.names[0], _line + f"Type not match"
+                
+                # String
                 elif isinstance(node.type, ArrayDecl):
                     const_type = node.init.type
                     # a string is an array of char, here we check if the init string is in an variable of char
-                    assert const_type == "string" and node.type.type.type.names[0] == "char", _line + f"type not match"
+                    assert const_type == "string" and node.type.type.type.names[0] == "char", _line + f"Type not match"
                     # if there is a declared dimension, we check the string init size matches
                     if node.type.dim is not None:
-                        assert node.type.dim.value == (len(node.init.value)-2), f"size mismatch on initialization"
+                        assert node.type.dim.value == (len(node.init.value)-2), f"Size mismatch on initialization"
         
         self.visit(node.type)
 
@@ -334,7 +334,7 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_VarDecl(self, node):
         var_name = node.declname.name
         type_symbol = self.current_scope.lookup(node.type.names[0])
-        assert type_symbol is not None, f"type not defined in language"
+        assert type_symbol is not None, f"Type not defined in language"
         var_symbol = VarSymbol(var_name, type_symbol) #TODO look how make it with arrays (ferra tip: use list of type)
         
         self.current_scope.insert(var_symbol)
@@ -342,8 +342,16 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_ArrayDecl(self, node):
         var_name = node.type.declname.name
         type_symbol = self.current_scope.lookup(node.type.type.names[0])
+        assert type_symbol is not None, f"Type not defined in language" #TODO parser breaks, idk
+        
+        # look if the initialize index has type int (here the index is a variable) 
+        if node.dim is not None:
+            if isinstance(node.dim, ID):
+                aux_type = self.current_scope.lookup(node.dim.name)
+                assert aux_type.type.name == "int", f"Array index must be of type int"
+            else:
+                assert node.dim.type == "int", f"Array index must be of type int"
         # array decl can be an array or a string
-        assert type_symbol is not None, f"type not defined in language"
         if type_symbol.name == "char":
             type_symbol = self.current_scope.lookup("string")
         else:    
