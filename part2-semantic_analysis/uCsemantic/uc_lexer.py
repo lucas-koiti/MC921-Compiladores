@@ -149,13 +149,13 @@ class UCLexer():
         t.type = self.reserved.get(t.value,'ID')  
         return t
 
-    def t_STRING(self, t):
-        r'(\".*?\"|\'.*?\')'
-        t.value = str(t.value)
-        return t
-    
     def t_CHAR_CONST(self, t):
         r'\'.?\''
+        t.value = str(t.value)
+        return t
+
+    def t_STRING(self, t):
+        r'(\".*?\"|\'.*?\')'
         t.value = str(t.value)
         return t
 
@@ -198,7 +198,7 @@ class UCLexer():
 
 #if __name__ == '__main__':
 
-#    import sys
+#import sys
 
 def print_error(msg, x, y):
     print("Lexical error: %s at %d:%d" % (msg, x, y))
