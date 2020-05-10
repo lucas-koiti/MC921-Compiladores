@@ -42,7 +42,7 @@ class Symbol(object):
         self.name = name
         self.type = type
 
-class uCType(Symbol):
+class uCType(object):
 
     '''
     Class that represents a type in the uC language.  Types 
@@ -52,7 +52,7 @@ class uCType(Symbol):
                  binary_ops=None, unary_ops=None,
                  rel_ops=None, assign_ops=None):
         
-        super().__init__(typename)   # TODO look if it works, uCtype its like a BuiltIn, so its also a symbol.
+        #super().__init__(typename)   # TODO look if it works, uCtype its like a BuiltIn, so its also a symbol.
        
         self.typename = typename
         self.unary_ops = unary_ops or set()
@@ -103,6 +103,16 @@ VoidType = uCType("void",
                  rel_ops     = {"==", "!="}
                  )
 
+class BuiltInType(Symbol):
+    def __init__(self, name, type):
+            super().__init__(name, type)
+
+    def __str__(self):
+        return "<{class_name}(name='{name}', type='{type}')>".format(
+            class_name=self.__class__.__name__,
+            name=self.name,
+            type=self.type,
+        )
 
 class VarSymbol(Symbol):
     def __init__(self, name, type):
@@ -170,14 +180,34 @@ class ScopedSymbolTable(object):
         self.enclosing_scope = enclosing_scope
 
     def _init_builtins(self):
-        self.insert(IntType)
-        self.insert(FloatType)
-        self.insert(CharType)
-        self.insert(ArrayType)
-        self.insert(BoolType)
-        self.insert(StringType)
-        self.insert(PtrType)
-        self.insert(VoidType)
+        self.insert(BuiltInType("int", IntType))
+        self.insert(BuiltInType("float", FloatType))
+        self.insert(BuiltInType("char", CharType))
+        self.insert(BuiltInType("array", ArrayType))
+        self.insert(BuiltInType("bool", BoolType))
+        self.insert(BuiltInType("string", StringType))
+        self.insert(BuiltInType("ptr", PtrType))
+        self.insert(BuiltInType("void", VoidType))
+
+    def __str__(self):
+            h1 = 'SCOPE (SCOPED SYMBOL TABLE)'
+            lines = ['\n', h1, '=' * len(h1)]
+            for header_name, header_value in (
+                ('Scope name', self.scope_name),
+                ('Scope level', self.scope_level),
+            ):
+                lines.append('%-15s: %s' % (header_name, header_value))
+            h2 = 'Scope (Scoped symbol table) contents'
+            lines.extend([h2, '-' * len(h2)])
+            lines.extend(
+                ('%7s: %r' % (key, value))
+                for key, value in self._symbols.items()
+            )
+            lines.append('\n')
+            s = '\n'.join(lines)
+            return s
+
+    __repr__ = __str__
 
     def insert(self, symbol):
         print('Insert: %s' % symbol.name)
@@ -259,17 +289,43 @@ class SemanticAnalyzer(NodeVisitor):
         assert left_type == right_type, _line + f"Cannot assign {right_type} to {left_type}"
 
     def visit_Decl(self, node):
+        _line = f"{node.coord.line}:{node.coord.column} - " #TODO fix line error
         name = node.name.name
         self.visit(node.name)
         _temp = self.current_scope.lookup(name)
         assert not _temp, f"{name} declared multiple times"
-        self.visit(node.type)
         
         if node.init:
-            self.visit(node.init)
-            const_type = node.init.type
-            assert const_type == node.type.type.names[0], f"type not match"
-
+            # InitList is an array initialized
+            if isinstance(node.init, InitList):
+                # check if the array index is a int type
+                if isinstance(node.type.dim, ID):                       #TODO COMPARAR DIMENSAO COM INDEX SENDO UM ID, NAO HÁ VALOR
+                # if the index is a variable, look up for its type
+                    dim_type = self.current_scope.lookup(node.type.dim.name)
+                    assert dim_type.type.name == "int", f"array index must be of type int"
+                else:
+                    assert node.type.dim.type == "int", f"array index must be of type int"
+                    # check if the init dimension is equal to the array size
+                    dim = len(node.init.exprs)     
+                    assert dim == node.type.dim.value, _line + f"size mismatch on initialization"
+                    # check if there is a different type declared inside the array 
+                    for i in range(dim):
+                        assert node.init.exprs[i].type == node.type.type.type.names[0], f"array contain a different type from initialization"
+            
+            # Constant can derives from a VarDecl or a String (ArrayDecl)
+            elif isinstance(node.init, Constant):    
+                if isinstance(node.type, VarDecl):
+                    const_type = node.init.type
+                    assert const_type == node.type.type.names[0], _line + f"type not match"
+                elif isinstance(node.type, ArrayDecl):
+                    const_type = node.init.type
+                    # a string is an array of char, here we check if the init string is in an variable of char
+                    assert const_type == "string" and node.type.type.type.names[0] == "char", _line + f"type not match"
+                    # if there is a declared dimension, we check the string init size matches
+                    if node.type.dim is not None:
+                        assert node.type.dim.value == (len(node.init.value)-2), f"size mismatch on initialization"
+        
+        self.visit(node.type)
 
     def visit_GlobalDecl(self, node):
         for i in node.decls:
@@ -278,8 +334,21 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_VarDecl(self, node):
         var_name = node.declname.name
         type_symbol = self.current_scope.lookup(node.type.names[0])
-        var_symbol = VarSymbol(var_name, type_symbol)
+        assert type_symbol is not None, f"type not defined in language"
+        var_symbol = VarSymbol(var_name, type_symbol) #TODO look how make it with arrays (ferra tip: use list of type)
+        
+        self.current_scope.insert(var_symbol)
 
+    def visit_ArrayDecl(self, node):
+        var_name = node.type.declname.name
+        type_symbol = self.current_scope.lookup(node.type.type.names[0])
+        # array decl can be an array or a string
+        assert type_symbol is not None, f"type not defined in language"
+        if type_symbol.name == "char":
+            type_symbol = self.current_scope.lookup("string")
+        else:    
+            type_symbol = self.current_scope.lookup("array")
+        var_symbol = VarSymbol(var_name, type_symbol)
         self.current_scope.insert(var_symbol)
 
 def main():
