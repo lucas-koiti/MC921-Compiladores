@@ -154,15 +154,16 @@ class PtrSymbol(Symbol):
     __repr__ = __str__
 
 class FuncSymbol(Symbol):
-    def __init__(self, name, params=None):
-        super().__init__(name)
+    def __init__(self, name, type, params=None):
+        super().__init__(name, type)
         # a list of formal parameters
         self.params = params if params is not None else []
 
     def __str__(self):
-        return '<{class_name}(name={name}, parameters={params})>'.format(
+        return '<{class_name}(name={name},type={type}, parameters={params})>'.format(
             class_name=self.__class__.__name__,
             name=self.name,
+            type=self.type,
             params=self.params,
         )
 
@@ -259,34 +260,10 @@ class SemanticAnalyzer(NodeVisitor):
 
         self.current_scope = self.current_scope.enclosing_scope
         print('LEAVE scope: global')
-
-    def visit_BinaryOp(self, node): #TODO test if this works
-        # 1. Make sure left and right operands have the same type
-        # 2. Make sure the operation is supported
-        # 3. Assign the result type
-        self.visit(node.left)
-        left_type = node.left.names[-1]
-        self.visit(node.right)
-        right_type = node.right.names[-1]
-        
-        _line = f"{node.coord.line}:{node.coord.column} - "
-        assert left_type == right_type, _line + f"Binary operator {node.op} does not match types"
-        if node.op in (left_type.binary_ops or left_type.rel_ops):
-            node.type = node.left.type
-
-    def visit_Assignment(self, node): #TODO check if this works
-        _line = f"{node.coord.line}:{node.coord.column} - "
-
-        self.visit(node.rvalue)
-        right_type = node.rvalue.type.names
-        _var = node.lvalue
-        self.visit(_var)
-        ## 1. Make sure the location of the assignment is defined
-        sym = self.current_scope.lookup(_var.name)
-        assert sym, "Assigning to unknown symbol"
-        ## Match lside e rside
-        left_type = node.lvalue.type.names
-        assert left_type == right_type, _line + f"Cannot assign {right_type} to {left_type}"
+    
+    def visit_GlobalDecl(self, node):
+        for i in node.decls:
+            self.visit(i)
 
     def visit_Decl(self, node):
         _line = f"{node.coord.line}:{node.coord.column} - " #TODO fix line error
@@ -327,10 +304,6 @@ class SemanticAnalyzer(NodeVisitor):
         
         self.visit(node.type)
 
-    def visit_GlobalDecl(self, node):
-        for i in node.decls:
-            self.visit(i)
-    
     def visit_VarDecl(self, node):
         var_name = node.declname.name
         type_symbol = self.current_scope.lookup(node.type.names[0])
@@ -351,6 +324,7 @@ class SemanticAnalyzer(NodeVisitor):
                 assert aux_type.type.name == "int", f"Array index must be of type int"
             else:
                 assert node.dim.type == "int", f"Array index must be of type int"
+       
         # array decl can be an array or a string
         if type_symbol.name == "char":
             type_symbol = self.current_scope.lookup("string")
@@ -358,6 +332,127 @@ class SemanticAnalyzer(NodeVisitor):
             type_symbol = self.current_scope.lookup("array")
         var_symbol = VarSymbol(var_name, type_symbol)
         self.current_scope.insert(var_symbol)
+
+    def visit_FuncDef(self, node):
+        # visit the decl to see if its possible put the function symbol in the table
+        self.visit(node.decl)
+        
+        # change to the function scope
+        print('ENTER Scope: %s' %node.decl.name.name)
+        procedure_scope = ScopedSymbolTable(
+            scope_name = node.decl.name.name,
+            scope_level = self.current_scope.scope_level + 1,
+            enclosing_scope = self.current_scope
+        )
+        self.current_scope = procedure_scope
+
+        # insert the function params to the current scoped symbol table
+        _auxname = self.current_scope.scope_name
+        _funcdef = self.current_scope.lookup(_auxname)
+        _params = _funcdef.params
+        for p in _params:
+            p_type = self.current_scope.lookup(p[1])
+            assert p_type is not None, f"Type not defined in language"
+            p_name = p[0]
+            assert not self.current_scope.lookup(p_name), f"{p_name} declared multiple times"
+            var_symbol = VarSymbol(p_name, p_type)
+            self.current_scope.insert(var_symbol)
+
+        # visit the function body
+        self.visit(node.body)
+       
+        print(procedure_scope)
+        # leave the current function and get back to global scope
+        self.current_scope = self.current_scope.enclosing_scope
+        print('LEAVE scope %s' %node.decl.name.name)
+
+    def visit_FuncDecl(self, node):
+        # check the params
+        _params = None
+        if node.args is not None:
+            _params = self.visit(node.args)
+        
+        # create a function symbol and store in the symboltable
+        _functype = self.current_scope.lookup(node.type.type.names[0])
+        _funcaux = FuncSymbol(node.type.declname.name, _functype, _params)
+        self.current_scope.insert(_funcaux)
+
+    def visit_Compound(self, node):
+        for i in node.block_items:
+            self.visit(i)
+
+    def visit_ParamList(self, node):
+        # will return all the params in a list like [[param, typeofparam], ...]
+        _params = []
+        for _i in range(len(node.params)):
+            _auxparam = [node.params[_i].name.name, node.params[_i].type.type.names[0]]
+            _params.append(_auxparam)
+    
+        return _params
+    
+    def visit_Return(self, node): 
+        # return a list of types
+        _ret_types = []
+        if node.expr is not None:
+            if isinstance(node.expr, ExprList):
+                for _i in range(len(node.expr.exprs)):
+                    if isinstance(node.expr.exprs[_i], ID):
+                        _aux = self.current_scope.lookup(node.expr.exprs[_i].name)
+                        assert _aux is not None, f"{node.expr.exprs[_i].name} has no value to return"
+                        _ret_types.append(_aux.type.name)
+                    else:
+                        _ret_types.append(node.expr.exprs[_i].type)   
+            elif isinstance(node.expr, ID):
+                _auxtype = self.current_scope.lookup(node.expr.name)
+                assert _auxtype is not None, f"{node.expr.name} has no value to return"
+                _ret_types.append(_auxtype.type.name)
+            else:
+                _ret_types.append(node.expr.type)
+        else:
+            _ret_types.append("void")
+
+        # check if all the return itens matches to the function type 
+        _scopename = self.current_scope.scope_name
+        _functype = self.current_scope.lookup(_scopename)
+        for _i in _ret_types:
+            assert _functype.type.name == _i, f"return value not match to the function type"
+
+    def visit_BinaryOp(self, node): #TODO test if this works
+        # 1. Make sure left and right operands have the same type
+        # 2. Make sure the operation is supported
+        # 3. Assign the result type
+        self.visit(node.left)
+        left_type = node.left.names[-1]
+        self.visit(node.right)
+        right_type = node.right.names[-1]
+        
+        _line = f"{node.coord.line}:{node.coord.column} - "
+        assert left_type == right_type, _line + f"Binary operator {node.op} does not match types"
+        if node.op in (left_type.binary_ops or left_type.rel_ops):
+            node.type = node.left.type
+
+    def visit_Assignment(self, node): #TODO check every op
+        # visit the right side to see if its ok
+        self.visit(node.rvalue)
+        
+        # look to the right side type
+        _right_type = node.rvalue.type
+        _var = node.lvalue
+        # check the left side to see if its ok TODO look how to optimize this left side
+        self.visit(_var)
+
+        # check the location of the assignment is defined
+        _sym = self.current_scope.lookup(_var.name)
+        assert _sym, f"{_var.name} was not declared"
+
+        # check if both sides types matches
+        assert _sym.type.name == _right_type, f"Cannot assign {_right_type} to {_sym.type.name}"
+
+    def visit_Constant(self, node):
+        pass
+    
+    def visit_ID(self, node):
+        pass
 
 def main():
     import sys
