@@ -110,12 +110,13 @@ class PtrDecl(Node):
     attr_names = ()
 
 class BinaryOp(Node):
-    __slots__ = ('op', 'left', 'right', 'coord')
-    def __init__(self, op, left, right, coord=None):
+    __slots__ = ('op', 'left', 'right', 'coord', 'type')
+    def __init__(self, op, left, right, coord=None, type=None):
         self.op = op
         self.left = left
         self.right = right
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
