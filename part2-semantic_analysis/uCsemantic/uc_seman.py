@@ -1,6 +1,5 @@
 # uc Semantic Analysis #
-
-from uc_ast import *
+import uc_ast
 from uc_parser import UCParser
 
 ###################################
@@ -88,6 +87,7 @@ BoolType = uCType("bool",
                  )
             
 StringType = uCType("string",
+                 binary_ops  = {"+"},
                  rel_ops     = {"==", "!="}
                  )
 
@@ -272,43 +272,64 @@ class SemanticAnalyzer(NodeVisitor):
             self.visit(i)
 
     def visit_Decl(self, node):
-        _line = f"{node.coord.line}:{node.coord.column} - " #TODO fix line error
+        # first, check all possible errors
         name = node.name.name
         self.visit(node.name)
         _temp = self.current_scope.lookup(name)
         assert not _temp, f"ERROR: {name} declared multiple times"
-        
+    
         # check if the declaration has an init value
         if node.init:
             # InitList is an array initialized
-            if isinstance(node.init, InitList):
+            if isinstance(node.init, uc_ast.InitList):
                 if node.type.dim is not None:
                     # check if the array index is a int type
-                    assert not isinstance(node.type.dim, ID), f"ERROR: the index is not support by the language"  
+                    assert not isinstance(node.type.dim, uc_ast.ID), f"ERROR: the index is not support by the language"  
                     assert node.type.dim.type == "int", f"ERROR: Array index must be of type int"
                     # check if the init dimension is equal to the array size
                     dim = len(node.init.exprs)     
-                    assert dim == node.type.dim.value, _line + f"ERROR: Size mismatch on initialization"
+                    assert dim == node.type.dim.value, f"ERROR: Size mismatch on initialization"
                     # check if there is a different type declared inside the array 
                     for i in range(dim):
                         assert node.init.exprs[i].type == node.type.type.type.names[0], f"ERROR: Array contain a different type from initialization"
             
             # Constant can derives from a VarDecl or a String (ArrayDecl)
-            elif isinstance(node.init, Constant):    
+            elif isinstance(node.init, uc_ast.Constant):    
                 # Array
-                if isinstance(node.type, VarDecl):
+                if isinstance(node.type, uc_ast.VarDecl):
                     const_type = node.init.type
-                    assert const_type == node.type.type.names[0], _line + f"ERROR: Type not match"
+                    assert const_type == node.type.type.names[0], f"ERROR: Type not match"
                 
                 # String
-                elif isinstance(node.type, ArrayDecl):
+                elif isinstance(node.type, uc_ast.ArrayDecl):
                     const_type = node.init.type
                     # a string is an array of char, here we check if the init string is in an variable of char
-                    assert const_type == "string" and node.type.type.type.names[0] == "char", _line + f"ERROR: Type not match"
+                    assert const_type == "string" and node.type.type.type.names[0] == "char", f"ERROR: Type not match"
                     # if there is a declared dimension, we check the string init size matches
                     if node.type.dim is not None:
                         assert node.type.dim.value == (len(node.init.value)-2), f"ERROR: Size mismatch on initialization"
-        
+
+            # init value is a parameter variable
+            elif isinstance(node.init, uc_ast.ID):
+                _name = self.current_scope.lookup(node.init.name)
+                assert _name != None, f"ERROR: {node.init.name} was not declared"
+                _type = _name.type.name
+                assert _type == node.type.type.names[0], f"ERROR: {_name.name} type not match"
+            
+            # init value derives from a binary operation
+            elif isinstance(node.init, uc_ast.BinaryOp):
+                self.visit(node.init)
+                if isinstance(node.type, uc_ast.VarDecl):
+                    assert node.init.type == node.type.type.names[0], f"ERROR: binary operation type not match"
+                else:
+                    _aux = node.type.type.type.names[0]
+                    if _aux == "char": # here its an array, so we have a string
+                        _aux = "string" 
+                    assert node.init.type == _aux, f"ERROR: binary operation type not match"
+            else: #possible error
+                print("Dude, u'r missing something")
+
+        # declare the symbol
         self.visit(node.type)
 
     def visit_VarDecl(self, node):
@@ -327,7 +348,7 @@ class SemanticAnalyzer(NodeVisitor):
         
         # look if the initialize index has type int (here the index is a variable) 
         if node.dim is not None:
-            if isinstance(node.dim, ID):
+            if isinstance(node.dim, uc_ast.ID):
                 aux_type = self.current_scope.lookup(node.dim.name)
                 assert aux_type, f"ERROR: Index has no value declared"
                 assert aux_type.type.name == "int", f"ERROR: Array index must be of type int"
@@ -396,7 +417,7 @@ class SemanticAnalyzer(NodeVisitor):
         _name = node.name.name
         assert self.current_scope.lookup(_name), f"ERROR: Reference to a undeclared array"
         _index = node.subscript
-        if isinstance(_index, ID):
+        if isinstance(_index, uc_ast.ID):
             _aux = self.current_scope.lookup(_index.name)
             assert _aux, f"ERROR: Index variable reference was not defined"
             assert _aux.type.name == "int", f"ERROR: Array index reference must be of int type"
@@ -411,12 +432,12 @@ class SemanticAnalyzer(NodeVisitor):
         _params = _params.params
         # check if the parameters number is ok
         # check if the parameters type matches
-        if isinstance(node.args, ExprList):
+        if isinstance(node.args, uc_ast.ExprList):
             # case with more than one parameter
             _exprlist = node.args.exprs
             assert len(_params) == len(_exprlist), f"ERROR: Function call has missing/excede parameters"
             for _i in range(len(_params)):
-                if isinstance(_exprlist[_i], ID):
+                if isinstance(_exprlist[_i], uc_ast.ID):
                     _type = self.current_scope.lookup(_exprlist[_i].name)
                     assert _type != None, f"ERROR: Function call has a parameter being a not declared variable"
                     _type = _type.type.name
@@ -426,7 +447,7 @@ class SemanticAnalyzer(NodeVisitor):
         else:
             # case with a single parameter
             assert len(_params) == 1, f"ERROR: Function call has missing parameters"
-            if isinstance(node.args, ID):
+            if isinstance(node.args, uc_ast.ID):
                     _type = self.current_scope.lookup(node.args.name)
                     assert _type != None, f"ERROR: Function call has a parameter being a not declared variable"
                     _type = _type.type.name
@@ -434,24 +455,32 @@ class SemanticAnalyzer(NodeVisitor):
                 _type = node.args.type
             assert _params[0][1] == _type, f"ERROR: Function call has wrong types parameters"
 
+    def visit_For(self, node): #TODO finish this
+        self.visit(node.init)
+        print(node.cond)
+        self.visit(node.cond)
+        #self.visit(node.next)
+        #self.visit(node.stmt)
+        #self.visit(node.coord)
+
     def _auxBinOp_typeof(self, node):
         _type = None
 
         # define the type recursively
-        if isinstance(node, Constant):
+        if isinstance(node, uc_ast.Constant):
             _type = node.type
-        elif isinstance(node, ID):
+        elif isinstance(node, uc_ast.ID):
             _aux = self.current_scope.lookup(node.name)
             _type = _aux.type.name
-        elif isinstance(node, ArrayRef):
+        elif isinstance(node, uc_ast.ArrayRef):
             self.visit(node)
             _aux = self.current_scope.lookup(node.name.name)
             _type = _aux.auxtype
-        elif isinstance(node, FuncCall):
+        elif isinstance(node, uc_ast.FuncCall):
             self.visit(node)
             _aux = self.current_scope.lookup(node.name.name)
             _type = _aux.type.name
-        elif isinstance(node, BinaryOp):
+        elif isinstance(node, uc_ast.BinaryOp):
             _type = self.visit(node) 
         
         return _type
@@ -471,7 +500,7 @@ class SemanticAnalyzer(NodeVisitor):
         assert node.op in (_auxtype.type.binary_ops or _auxtype.type.rel_ops), f"ERROR: Operation not supported by the language"
         
         # Assign the result type
-        if isinstance(node, BinaryOp):
+        if isinstance(node, uc_ast.BinaryOp):
             node.type = _ltype
 
         return _ltype
@@ -492,15 +521,15 @@ class SemanticAnalyzer(NodeVisitor):
         _functype = self.current_scope.lookup(_scopename)
 
         if node.expr is not None:
-            if isinstance(node.expr, ExprList):
+            if isinstance(node.expr, uc_ast.ExprList):
                 for _i in range(len(node.expr.exprs)):
-                    if isinstance(node.expr.exprs[_i], ID):
+                    if isinstance(node.expr.exprs[_i], uc_ast.ID):
                         _aux = self.current_scope.lookup(node.expr.exprs[_i].name)
                         assert _aux is not None, f"ERROR: {node.expr.exprs[_i].name} has no value to return"
                         _ret_types.append(_aux.type.name)
                     else:
                         _ret_types.append(node.expr.exprs[_i].type)   
-            elif isinstance(node.expr, ID):
+            elif isinstance(node.expr, uc_ast.ID):
                 _auxtype = self.current_scope.lookup(node.expr.name)
                 assert _auxtype is not None, f"ERROR: {node.expr.name} has no value to return"
                 _ret_types.append(_auxtype.type.name)
@@ -517,7 +546,7 @@ class SemanticAnalyzer(NodeVisitor):
             if _functype.type.name != _ret_types[0]:
                 print("WARNING: you're returning void, maybe you should consider return a value equal to the function's type")        
 
-    def visit_Assignment(self, node): #TODO check every op
+    def visit_Assignment(self, node): #TODO check every op (ASSIGNMENT-OPERATOR)
         # visit the right side to see if its ok
         self.visit(node.rvalue)
         

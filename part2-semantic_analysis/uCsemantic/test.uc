@@ -1,15 +1,7 @@
+int main(float b){
+    int a;
 
-int aux(int a, int b){
-    int c = a;
+    a += 1;
 
-    return a+b;
-}
-
-int main(){
-    
-    int a = 2;
-    
-    a = 1+2+aux1(2,a);
-
-    return;
+    return 0;
 }
