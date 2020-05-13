@@ -276,10 +276,10 @@ class SemanticAnalyzer(NodeVisitor):
             self.visit(i)
 
     def visit_Decl(self, node):
-        # first, check all possible errors
         name = node.name.name
         #self.visit(node.name) #TODO wait if some test breaks here
-        _temp = self.current_scope.lookup(name)
+        # check if the var was already declared in the current_scope (don't look to the global)
+        _temp = self.current_scope.lookup(name, True) 
         assert not _temp, f"ERROR: {name} declared multiple times"
     
         # check if the declaration has an init value
@@ -339,7 +339,7 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_VarDecl(self, node):
         var_name = node.declname.name
         type_symbol = self.current_scope.lookup(node.type.names[0])
-        assert type_symbol is not None, f"TERROR: ype not defined in language"
+        assert type_symbol is not None, f"ERROR: Type not defined in language"
         var_symbol = VarSymbol(var_name, type_symbol) #TODO look how make it with arrays (ferra tip: use list of type)
         
         self.current_scope.insert(var_symbol)
@@ -424,7 +424,7 @@ class SemanticAnalyzer(NodeVisitor):
             p_type = self.current_scope.lookup(p[1])
             assert p_type is not None, f"ERROR: Type not defined in language"
             p_name = p[0]
-            assert not self.current_scope.lookup(p_name), f"ERROR: {p_name} declared multiple times"
+            assert not self.current_scope.lookup(p_name, True), f"ERROR: {p_name} declared multiple times"
             var_symbol = VarSymbol(p_name, p_type)
             self.current_scope.insert(var_symbol)
 
