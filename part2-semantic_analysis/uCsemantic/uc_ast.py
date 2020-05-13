@@ -342,11 +342,12 @@ class EmptyStatement(Node):
     attr_names = ()
 
 class UnaryOp(Node):
-    __slots__ = ('op', 'expr', 'coord')
-    def __init__(self, op, expr, coord=None):
+    __slots__ = ('op', 'expr', 'coord', 'type')
+    def __init__(self, op, expr, coord=None, type=None):
         self.op = op
         self.expr = expr
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
@@ -360,11 +361,12 @@ class UnaryOp(Node):
     attr_names = ('op', )
 
 class ArrayRef(Node):
-    __slots__ = ('name', 'subscript', 'coord')
-    def __init__(self, name, subscript, coord=None):
+    __slots__ = ('name', 'subscript', 'coord', 'type')
+    def __init__(self, name, subscript, coord=None, type=None):
         self.name = name
         self.subscript = subscript
         self.coord = coord
+        self.type =type
 
     def children(self):
         nodelist = []
@@ -503,10 +505,11 @@ class FuncDef(Node):
     attr_names = ()
 
 class ID(Node):
-    __slots__ = ('name', 'coord')
-    def __init__(self, name, coord=None):
+    __slots__ = ('name', 'coord', 'type')
+    def __init__(self, name, coord=None, type=None):
         self.name = name
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
@@ -533,11 +536,12 @@ class InitList(Node):
     attr_names = ()
 
 class FuncCall(Node):
-    __slots__ = ('name', 'args', 'coord')
-    def __init__(self, name, args, coord=None):
+    __slots__ = ('name', 'args', 'coord', 'type')
+    def __init__(self, name, args, coord=None, type=None):
         self.name = name
         self.args = args
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
