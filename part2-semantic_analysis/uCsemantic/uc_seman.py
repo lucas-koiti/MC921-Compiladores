@@ -42,7 +42,6 @@ class Symbol(object):
         self.type = type
 
 class uCType(object):
-
     '''
     Class that represents a type in the uC language.  Types 
     are declared as singleton instances of this type.
@@ -73,38 +72,44 @@ FloatType = uCType("float",
 
 CharType = uCType("char",
                  unary_ops   = {"*", "&"},
-                 rel_ops     = {"==", "!=", "&&", "||"}
+                 rel_ops     = {"==", "!=", "&&", "||"},
+                 assign_ops  = {"="}
                  )
 
 ArrayType = uCType("array",
                  unary_ops   = {"*", "&"},
-                 rel_ops     = {"==", "!="}
+                 rel_ops     = {"==", "!="},
+                 assign_ops  = {"="}
                  )
 
 BoolType = uCType("bool",
                  unary_ops   = {"*", "&", "!"},
-                 rel_ops     = {"==", "!=", "&&", "||"}
+                 rel_ops     = {"==", "!=", "&&", "||"},
+                 assign_ops  = {"="}
                  )
             
 StringType = uCType("string",
                  binary_ops  = {"+"},
-                 rel_ops     = {"==", "!="}
+                 rel_ops     = {"==", "!="},
+                 assign_ops  = {"="}
                  )
 
 PtrType = uCType("ptr",
                  unary_ops   = {"*", "&"},
-                 rel_ops     = {"==", "!="}
+                 rel_ops     = {"==", "!="},
+                 assign_ops  = {"="}
                  )
 
 VoidType = uCType("void",
                  unary_ops   = {"*", "&"},
-                 rel_ops     = {"==", "!="}
+                 rel_ops     = {"==", "!="},
+                 assign_ops  = {"="}
                  )
 
 class BuiltInType(Symbol):
     def __init__(self, name, type):
             super().__init__(name, type)
-            self.kind = "tipo" # TODO remember why i did this
+            #self.kind = "tipo" 
 
     def __str__(self):
         return "<{class_name}(name='{name}', type='{type}')>".format(
@@ -116,8 +121,7 @@ class BuiltInType(Symbol):
 class VarSymbol(Symbol):
     def __init__(self, name, type):
             super().__init__(name, type)
-            # to identifies the array type
-            self.kind = "var"
+            #self.kind = "var"
 
     def __str__(self):
         return "<{class_name}(name='{name}', type='{type}')>".format(
@@ -146,7 +150,7 @@ class ArraySymbol(Symbol):
 class PtrSymbol(Symbol):
     def __init__(self, name, type):
             super().__init__(name, type)
-            self.kind = "ptr"
+            #self.kind = "ptr"
 
     def __str__(self):
         return "<{class_name}(name='{name}', type='{type}')>".format(
@@ -162,7 +166,7 @@ class FuncSymbol(Symbol):
         super().__init__(name, type)
         # a list of formal parameters
         self.params = params if params is not None else []
-        self.kind = "func" #TODO remember why use this
+        #self.kind = "func" 
 
     def __str__(self):
         return '<{class_name}(name={name},type={type}, params={params})>'.format(
@@ -265,7 +269,7 @@ class SemanticAnalyzer(NodeVisitor):
         
         self.current_scope = self.current_scope.enclosing_scope
         print('LEAVE scope: global')
-        print("Semantic Analysis Successfully - Have a Nice Day!")
+        print("Semantic Analysis finished Successfully - Have a Nice Day!")
     
     def visit_GlobalDecl(self, node):
         for i in node.decls:
@@ -274,7 +278,7 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_Decl(self, node):
         # first, check all possible errors
         name = node.name.name
-        self.visit(node.name)
+        #self.visit(node.name) #TODO wait if some test breaks here
         _temp = self.current_scope.lookup(name)
         assert not _temp, f"ERROR: {name} declared multiple times"
     
@@ -341,11 +345,30 @@ class SemanticAnalyzer(NodeVisitor):
         self.current_scope.insert(var_symbol)
 
     def visit_ArrayDecl(self, node):
-        var_name = node.type.declname.name
-        type_symbol = self.current_scope.lookup(node.type.type.names[0])
-        _auxtype = type_symbol.name
-        assert type_symbol is not None, f"ERROR: Type not defined in language" #TODO parser breaks, idk
-        
+        if isinstance(node.type, uc_ast.VarDecl):
+            var_name = node.type.declname.name
+            type_symbol = self.current_scope.lookup(node.type.type.names[0])
+            _auxtype = type_symbol.name
+            assert type_symbol is not None, f"ERROR: Type not defined in language" 
+      
+            # check size and type
+            self._auxArraySizeType(node)
+
+            # array decl can be an array or a string
+            if type_symbol.name == "char":
+                type_symbol = self.current_scope.lookup("string")
+            else:    
+                type_symbol = self.current_scope.lookup("array")
+            var_symbol = ArraySymbol(var_name, type_symbol, _auxtype)
+            self.current_scope.insert(var_symbol)   
+
+        # recursively access to more than one dimension v[][]..
+        else:
+            # check size and types in every level
+            self._auxArraySizeType(node)
+            self.visit(node.type)
+       
+    def _auxArraySizeType(self, node):
         # look if the initialize index has type int (here the index is a variable) 
         if node.dim is not None:
             if isinstance(node.dim, uc_ast.ID):
@@ -354,14 +377,31 @@ class SemanticAnalyzer(NodeVisitor):
                 assert aux_type.type.name == "int", f"ERROR: Array index must be of type int"
             else:
                 assert node.dim.type == "int", f"ERROR: Array index must be of type int"
-       
-        # array decl can be an array or a string
-        if type_symbol.name == "char":
-            type_symbol = self.current_scope.lookup("string")
-        else:    
-            type_symbol = self.current_scope.lookup("array")
-        var_symbol = ArraySymbol(var_name, type_symbol, _auxtype)
-        self.current_scope.insert(var_symbol)
+
+    def visit_ArrayRef(self, node):
+        if isinstance(node.name, uc_ast.ID):
+            # check semantics
+            _name = node.name.name
+            _symbol = self.current_scope.lookup(_name)
+            assert _symbol, f"ERROR: Reference to a undeclared array {_name}"
+            self._ArrayRefCheck(node)
+            # return the array type - assign it to the node
+            node.type = _symbol.auxtype
+            return node.type
+        else:
+            # check semantics in every level
+            self._ArrayRefCheck(node)
+            node.type = self.visit(node.name)
+
+    def _ArrayRefCheck(self, node):
+        # check if the reference is semantic correct
+        _index = node.subscript
+        if isinstance(_index, uc_ast.ID):
+            _aux = self.current_scope.lookup(_index.name)
+            assert _aux, f"ERROR: Index variable reference was not defined"
+            assert _aux.type.name == "int", f"ERROR: Array index reference must be of int type"
+        else:
+            assert node.subscript.type == "int", f"ERROR: Array index reference must be of int type"
 
     def visit_FuncDef(self, node):
         # visit the decl to see if its possible put the function symbol in the table
@@ -409,59 +449,106 @@ class SemanticAnalyzer(NodeVisitor):
 
     def visit_Compound(self, node):
         # check every item in the block
-        for i in node.block_items:
-            self.visit(i)
-
-    def visit_ArrayRef(self, node):
-        # check if the reference is semantic correct
-        _name = node.name.name
-        assert self.current_scope.lookup(_name), f"ERROR: Reference to a undeclared array"
-        _index = node.subscript
-        if isinstance(_index, uc_ast.ID):
-            _aux = self.current_scope.lookup(_index.name)
-            assert _aux, f"ERROR: Index variable reference was not defined"
-            assert _aux.type.name == "int", f"ERROR: Array index reference must be of int type"
-        else:
-            assert node.subscript.type == "int", f"ERROR: Array index reference must be of int type"
+        for _i in node.block_items:
+            self.visit(_i)
 
     def visit_FuncCall(self, node):
         # check if it is semantically ok
         _funcname = node.name.name
-        _params = self.current_scope.lookup(_funcname)
-        assert _params != None, f"ERROR: Function calls a undeclared function"
-        _params = _params.params
+        _auxfunc = self.current_scope.lookup(_funcname)
+        assert _auxfunc != None, f"ERROR: Function calls has an undeclared function"
+        _params = _auxfunc.params
         # check if the parameters number is ok
         # check if the parameters type matches
+        
         if isinstance(node.args, uc_ast.ExprList):
             # case with more than one parameter
             _exprlist = node.args.exprs
-            assert len(_params) == len(_exprlist), f"ERROR: Function call has missing/excede parameters"
+            assert len(_params) == len(_exprlist), f"ERROR: Functioncall has missing/excede parameters"
             for _i in range(len(_params)):
                 if isinstance(_exprlist[_i], uc_ast.ID):
                     _type = self.current_scope.lookup(_exprlist[_i].name)
-                    assert _type != None, f"ERROR: Function call has a parameter being a not declared variable"
+                    assert _type != None, f"ERROR: Functioncall has a parameter being a not declared variable"
                     _type = _type.type.name
                 else:
+                    self.visit(_exprlist[_i])
                     _type = _exprlist[_i].type
-                assert _params[_i][1] == _type, f"ERROR: Function call has wrong types parameters"
+                assert _params[_i][1] == _type, f"ERROR: FunctionCall has wrong types parameters"
         else:
             # case with a single parameter
-            assert len(_params) == 1, f"ERROR: Function call has missing parameters"
+            assert node.args and (1 == len(_params)), f"ERROR: Function call has missing parameters"
             if isinstance(node.args, uc_ast.ID):
                     _type = self.current_scope.lookup(node.args.name)
-                    assert _type != None, f"ERROR: Function call has a parameter being a not declared variable"
+                    assert _type != None, f"ERROR: FunctionCall has a parameter being a not declared variable"
                     _type = _type.type.name
             else:
+                self.visit(node.args) 
                 _type = node.args.type
-            assert _params[0][1] == _type, f"ERROR: Function call has wrong types parameters"
+            assert _params[0][1] == _type, f"ERROR: FunctionCall has wrong types parameters"
+        
+        # return the function type - assign it to the node
+        node.type = _auxfunc.type.name
+        return node.type
 
-    def visit_For(self, node): #TODO finish this
-        self.visit(node.init)
-        print(node.cond)
+    def visit_For(self, node):
+        # visit every node
+        if node.init != None:  
+            self.visit(node.init)
+        if node.cond != None:
+            self.visit(node.cond) 
+        if node.next != None:
+            self.visit(node.next)
+        #assert node.stmt.block_items, f"ERROR: (For) must have an statement"
+        self.visit(node.stmt)
+    
+    def visit_While(self, node):
+        # just visi the condition and statement
         self.visit(node.cond)
-        #self.visit(node.next)
-        #self.visit(node.stmt)
-        #self.visit(node.coord)
+        self.visit(node.stmt)
+
+    def visit_If(self, node):
+        # check if has a declared statement in iftrue and go to visit iffalse if there is an statement there
+        self.visit(node.cond)
+        self.visit(node.iftrue)
+        if node.iffalse != None:
+            self.visit(node.iffalse)
+    
+    def visit_Cast(self, node):
+        # visit the expr to validate
+        self.visit(node.expr)
+
+    def visit_Assert(self, node):
+        # visit the expr to validate
+        self.visit(node.expr)
+
+    def visit_Read(self, node):
+        # check if there is an argument
+        self.visit(node.expr)
+
+    def visit_Print(self, node): 
+        if node.expr != None:
+            self.visit(node.expr)
+
+    def visit_ExprList(self, node):
+        # check every node in the list
+        for _i in node.exprs:
+            self.visit(_i)
+
+    def visit_UnaryOp(self, node):
+        if isinstance(node.expr, uc_ast.ID):
+            _name = node.expr.name
+        else: # not sure if a unaryop is always over an ID
+            print("dude, look for error here")
+        # check if the var was declared
+        _vardecl = self.current_scope.lookup(_name)
+        assert _vardecl != None, f"ERROR: Unary operation variable was not declared"
+
+        # check if support the operation
+        assert node.op in _vardecl.type.type.unary_ops, f"ERROR: This {node.op} operation isn't support by the language"
+
+        # return the same type = assign the node
+        node.type = _vardecl.type.name
+        return node.type
 
     def _auxBinOp_typeof(self, node):
         _type = None
@@ -470,18 +557,24 @@ class SemanticAnalyzer(NodeVisitor):
         if isinstance(node, uc_ast.Constant):
             _type = node.type
         elif isinstance(node, uc_ast.ID):
-            _aux = self.current_scope.lookup(node.name)
-            _type = _aux.type.name
+            _type = self.visit(node)
+            #_aux = self.current_scope.lookup(node.name)
+            #_type = _aux.type.name
         elif isinstance(node, uc_ast.ArrayRef):
             self.visit(node)
             _aux = self.current_scope.lookup(node.name.name)
             _type = _aux.auxtype
         elif isinstance(node, uc_ast.FuncCall):
-            self.visit(node)
-            _aux = self.current_scope.lookup(node.name.name)
-            _type = _aux.type.name
+            _type = self.visit(node)
+            #_aux = self.current_scope.lookup(node.name.name)
+            #_type = _aux.type.name
+        elif isinstance(node, uc_ast.UnaryOp):
+            _type = self.visit(node)
         elif isinstance(node, uc_ast.BinaryOp):
-            _type = self.visit(node) 
+            _type = self.visit(node)
+        elif isinstance(node, uc_ast.Cast):
+            self.visit(node)
+            _type = node.to_type.names[0] 
         
         return _type
 
@@ -494,10 +587,12 @@ class SemanticAnalyzer(NodeVisitor):
         _rtype = self._auxBinOp_typeof(node.right)
 
         assert _ltype == _rtype, f"ERROR: Type mismatch in the expression"
-    
+        
         # Make sure the operation is supported
         _auxtype = self.current_scope.lookup(_ltype)
-        assert node.op in (_auxtype.type.binary_ops or _auxtype.type.rel_ops), f"ERROR: Operation not supported by the language"
+        print(_auxtype)
+        print(node.op)
+        assert node.op in _auxtype.type.binary_ops or _auxtype.type.rel_ops, f"ERROR: Operation not supported by the language"
         
         # Assign the result type
         if isinstance(node, uc_ast.BinaryOp):
@@ -546,32 +641,43 @@ class SemanticAnalyzer(NodeVisitor):
             if _functype.type.name != _ret_types[0]:
                 print("WARNING: you're returning void, maybe you should consider return a value equal to the function's type")        
 
-    def visit_Assignment(self, node): #TODO check every op (ASSIGNMENT-OPERATOR)
+    def visit_Assignment(self, node): 
         # visit the right side to see if its ok
-        self.visit(node.rvalue)
-        
+        self.visit(node.rvalue)   
         # look to the right side type
         _right_type = node.rvalue.type
-        _var = node.lvalue
-        # check the left side to see if its ok TODO look how to optimize this left side
-        self.visit(_var)
+        
+        # check the left side to see if its ok 
+        self.visit(node.lvalue)
+        # look to the left side type
+        _left_type = node.lvalue.type
 
         # check the location of the assignment is defined
-        _sym = self.current_scope.lookup(_var.name)
-        assert _sym, f"ERROR: {_var.name} was not declared"
+        _sym = self.current_scope.lookup(_left_type)
+        #assert _sym, f"ERROR: {_var.name} was not declared"
 
+        # check if has operation support by the type
+        assert node.op in _sym.type.assign_ops, f"ERROR: {node.op} not supported by type:{_sym.name}"
+        
         # check if both sides types matches
-        assert _sym.type.name == _right_type, f"ERROR: Cannot assign {_right_type} to {_sym.type.name}"
+        assert _left_type == _right_type, f"ERROR: Cannot assign {_right_type} to {_left_type}"
 
-    #TODO list of NODES i think don't need be visited
-    def visit_Constant(self, node):
-        pass
-    
     def visit_ID(self, node):
+        # just check if it was declared
+        _auxID = self.current_scope.lookup(node.name) 
+        assert _auxID, f"ERROR: ID:{node.name} not declared"
+        
+        # return the type - assign it to the ast node
+        node.type = _auxID.type.name
+        return node.type
+        
+    def visit_EmptyStatement(self, node):
         pass
 
-    def visit_ExprList(self, node):
-        pass
+#TODO list of NODES i think don't need be visited
+    # def visit_Constant(self, node):
+    # def visit_InitList(self, node):
+    # def visit_DeclList(self, node):
 
 def main():
     import sys
