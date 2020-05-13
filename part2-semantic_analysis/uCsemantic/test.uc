@@ -1,6 +1,6 @@
 int z = 3, t =4;
 
-int g (int t) {
+int g (int u) {
  int x;
  t *= 2;
  x = 2*t;

@@ -590,15 +590,17 @@ class SemanticAnalyzer(NodeVisitor):
         
         # Make sure the operation is supported
         _auxtype = self.current_scope.lookup(_ltype)
-        print(_auxtype)
-        print(node.op)
-        assert node.op in _auxtype.type.binary_ops or _auxtype.type.rel_ops, f"ERROR: Operation not supported by the language"
+        assert (node.op in _auxtype.type.binary_ops) or (node.op in _auxtype.type.rel_ops), f"ERROR: Operation not supported by the language"
         
         # Assign the result type
         if isinstance(node, uc_ast.BinaryOp):
-            node.type = _ltype
+            # if the binary ops do a rel_ops, results in a boolean type
+            if node.op in _auxtype.type.rel_ops:
+                node.type = "bool"
+            else:
+                node.type = _ltype
 
-        return _ltype
+        return node.type
         
     def visit_ParamList(self, node):
         # will return all the params in a list like [[param, typeofparam], ...]
