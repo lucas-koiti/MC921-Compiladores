@@ -522,10 +522,11 @@ class ID(Node):
     attr_names = ('name', )
 
 class InitList(Node):
-    __slots__ = ('exprs', 'coord')
-    def __init__(self, exprs, coord=None):
+    __slots__ = ('exprs', 'coord', 'type')
+    def __init__(self, exprs, coord=None, type=None):
         self.exprs = exprs
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
