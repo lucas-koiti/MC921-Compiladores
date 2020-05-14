@@ -274,6 +274,27 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_GlobalDecl(self, node):
         for i in node.decls:
             self.visit(i)
+    
+    def visit_InitList(self, node):
+        # return a list with every item type
+        _initlistaux = []
+        
+        for _i in range(len(node.exprs)):
+            if isinstance(node.exprs[_i], uc_ast.InitList):
+                node.exprs[_i].type = node.type
+                _initlistaux.append(self.visit(node.exprs[_i]))
+            else:
+                if isinstance(node.exprs[_i], uc_ast.ID):
+                    _typeaux = self.current_scope.lookup(node.exprs[_i].name)
+                    assert _typeaux, f"ERROR: Variable: {node.exprs[_i].name} used in array initialization was not declared"
+                    _typeaux = _typeaux.type.name
+                    assert node.type == _typeaux, f"ERROR: Array contain a different type from initialization"
+                    _initlistaux.append(_typeaux)
+                else:
+                    assert node.type == node.exprs[_i].type, f"ERROR: Array contain a different type from initialization"
+                    _initlistaux.append(node.exprs[_i].type)
+        
+        return _initlistaux
 
     def visit_Decl(self, node):
         name = node.name.name
@@ -287,16 +308,36 @@ class SemanticAnalyzer(NodeVisitor):
             # InitList is an array initialized
             if isinstance(node.init, uc_ast.InitList):
                 if node.type.dim is not None:
-                    # check if the array index is a int type
-                    assert not isinstance(node.type.dim, uc_ast.ID), f"ERROR: the index is not support by the language"  
-                    assert node.type.dim.type == "int", f"ERROR: Array index must be of type int"
-                    # check if the init dimension is equal to the array size
-                    dim = len(node.init.exprs)     
-                    assert dim == node.type.dim.value, f"ERROR: Size mismatch on initialization"
-                    # check if there is a different type declared inside the array 
-                    for i in range(dim):
-                        assert node.init.exprs[i].type == node.type.type.type.names[0], f"ERROR: Array contain a different type from initialization"
-            
+                    _dimaux = node.type
+                    _auxlistdim = []
+                    # here, get every index size value and the array type
+                    while isinstance(_dimaux, uc_ast.ArrayDecl):
+                        if isinstance(_dimaux.type, uc_ast.VarDecl):
+                            _typeaux = _dimaux.type.type.names[0] 
+                            _auxlistdim.append(_dimaux.dim.value) 
+                            break
+                        else:
+                            _auxlistdim.append(_dimaux.type.dim.value)
+                            _dimaux = _dimaux.type
+
+                    # get the init list as a list of every item type (eg. [[int],[int,int]]) and check if is the right init value
+                    node.init.type = _typeaux
+                    _auxlisttypes = self.visit(node.init)
+
+                    # check if the index matches to init size
+                    print(_auxlisttypes)
+                    print(_auxlistdim)
+                    _tmp = _auxlisttypes
+                    _i = 0
+                    while _i < len(_auxlistdim):
+                        assert len(_tmp) == _auxlistdim[_i], f"ERROR: Array size mismatch - index:{len(_tmp)} size: {_dimaux[_i]}"
+                        _tmp = _tmp[0]
+                        _i += 1
+                    
+                #check items type when dim is []
+                else:
+                    for _i in node.init.exprs:
+                        assert _i.type == node.type.type.type.names[0], f"ERROR: Array contain a different type from initialization"
             # Constant can derives from a VarDecl or a String (ArrayDecl)
             elif isinstance(node.init, uc_ast.Constant):    
                 # Array
@@ -330,8 +371,8 @@ class SemanticAnalyzer(NodeVisitor):
                     if _aux == "char": # here its an array, so we have a string
                         _aux = "string" 
                     assert node.init.type == _aux, f"ERROR: binary operation type not match"
-            else: #possible error
-                print("Dude, u'r missing something")
+            else: 
+                pass
 
         # declare the symbol
         self.visit(node.type)
@@ -587,7 +628,7 @@ class SemanticAnalyzer(NodeVisitor):
         _rtype = self._auxBinOp_typeof(node.right)
 
         assert _ltype == _rtype, f"ERROR: Type mismatch in the expression"
-        
+        print(_ltype, _rtype)
         # Make sure the operation is supported
         _auxtype = self.current_scope.lookup(_ltype)
         assert (node.op in _auxtype.type.binary_ops) or (node.op in _auxtype.type.rel_ops), f"ERROR: Operation not supported by the language"
@@ -678,8 +719,9 @@ class SemanticAnalyzer(NodeVisitor):
 
 #TODO list of NODES i think don't need be visited
     # def visit_Constant(self, node):
-    # def visit_InitList(self, node):
     # def visit_DeclList(self, node):
+    # def visit_Type(self, node):
+    # def visit_Break(self, node):
 
 def main():
     import sys
