@@ -220,11 +220,11 @@ class ScopedSymbolTable(object):
     __repr__ = __str__
 
     def insert(self, symbol):
-        print('Insert: %s' % symbol.name)
+        #print('Insert: %s' % symbol.name)
         self._symbols[symbol.name] = symbol
 
     def lookup(self, name, current_scope_only=False):
-        print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
+        #print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
         # 'symbol' is either an instance of the Symbol class or None
         symbol = self._symbols.get(name)
 
@@ -251,7 +251,7 @@ class SemanticAnalyzer(NodeVisitor):
         self.current_scope = None
 
     def visit_Program(self,node): #TODO test if this works
-        print('ENTER scope: global')
+        #print('ENTER scope: global')
         # define global scope
         global_scope = ScopedSymbolTable(
             scope_name='global',
@@ -265,11 +265,11 @@ class SemanticAnalyzer(NodeVisitor):
         for _decl in node.gdecls:
             self.visit(_decl)
 
-        print(global_scope)
+        #print(global_scope)
         
         self.current_scope = self.current_scope.enclosing_scope
-        print('LEAVE scope: global')
-        print("Semantic Analysis finished Successfully - Have a Nice Day!")
+        #print('LEAVE scope: global')
+        #print("Semantic Analysis finished Successfully - Have a Nice Day!")
     
     def visit_GlobalDecl(self, node):
         for i in node.decls:
@@ -278,23 +278,34 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_InitList(self, node):
         # return a list with every item type
         _initlistaux = []
-        
+        _initvalues = []
+
         for _i in range(len(node.exprs)):
             if isinstance(node.exprs[_i], uc_ast.InitList):
                 node.exprs[_i].type = node.type
-                _initlistaux.append(self.visit(node.exprs[_i]))
+                n, k = self.visit(node.exprs[_i])
+                _initlistaux.append(n)
+                _initvalues.append(k)
+                #_initlistaux.append(self.visit(node.exprs[_i]))
+
             else:
                 if isinstance(node.exprs[_i], uc_ast.ID):
                     _typeaux = self.current_scope.lookup(node.exprs[_i].name)
                     assert _typeaux, f"ERROR: Variable: {node.exprs[_i].name} used in array initialization was not declared"
+                    print(_typeaux)
                     _typeaux = _typeaux.type.name
                     assert node.type == _typeaux, f"ERROR: Array contain a different type from initialization"
                     _initlistaux.append(_typeaux)
                 else:
                     assert node.type == node.exprs[_i].type, f"ERROR: Array contain a different type from initialization"
                     _initlistaux.append(node.exprs[_i].type)
+                    _initvalues.append(node.exprs[_i].value)
+
+        # assign the list of inits to the node, helps in IRcodegen
+        #node.values = _initvalues
+        #print(node.values)
         
-        return _initlistaux
+        return _initlistaux, _initvalues
 
     def visit_Decl(self, node):
         name = node.name.name
@@ -319,18 +330,23 @@ class SemanticAnalyzer(NodeVisitor):
                         else:
                             _auxlistdim.append(_dimaux.type.dim.value)
                             _dimaux = _dimaux.type
+                
+                    # store the list of sizes in the node, helps in IR code gen
+                    node.type.auxdim = _auxlistdim
 
                     # get the init list as a list of every item type (eg. [[int],[int,int]]) and check if is the right init value
                     node.init.type = _typeaux
-                    _auxlisttypes = self.visit(node.init)
+                    _auxlisttypes, _auxlistvalues = self.visit(node.init)
+                
+                    # store the list of values in the node, helps in IR code gen
+                    node.type.values = _auxlistvalues 
 
                     # check if the index matches to init size
-                    print(_auxlisttypes)
-                    print(_auxlistdim)
                     _tmp = _auxlisttypes
                     _i = 0
+                    
                     while _i < len(_auxlistdim):
-                        assert len(_tmp) == _auxlistdim[_i], f"ERROR: Array size mismatch - index:{len(_tmp)} size: {_dimaux[_i]}"
+                        assert len(_tmp) == _auxlistdim[_i], f"ERROR: Array size mismatch - index:{len(_tmp)} size: {_auxlistdim[_i]}"
                         _tmp = _tmp[0]
                         _i += 1
                     
@@ -353,6 +369,10 @@ class SemanticAnalyzer(NodeVisitor):
                     # if there is a declared dimension, we check the string init size matches
                     if node.type.dim is not None:
                         assert node.type.dim.value == (len(node.init.value)-2), f"ERROR: Size mismatch on initialization"
+                    # information to IRgencode
+                    node.type.typeaux = "string"
+                    node.type.auxdim = [len(node.init.value)-2]
+                    node.type.values = node.init.value[1:-1]
 
             # init value is a parameter variable
             elif isinstance(node.init, uc_ast.ID):
@@ -374,6 +394,10 @@ class SemanticAnalyzer(NodeVisitor):
             else: 
                 pass
 
+        # to help IRgencode
+        if isinstance(node.type, uc_ast.ArrayDecl):
+            node.type.name = node.name.name
+
         # declare the symbol
         self.visit(node.type)
 
@@ -391,7 +415,7 @@ class SemanticAnalyzer(NodeVisitor):
             type_symbol = self.current_scope.lookup(node.type.type.names[0])
             _auxtype = type_symbol.name
             assert type_symbol is not None, f"ERROR: Type not defined in language" 
-      
+            node.typeaux = type_symbol.name
             # check size and type
             self._auxArraySizeType(node)
 
@@ -408,7 +432,8 @@ class SemanticAnalyzer(NodeVisitor):
             # check size and types in every level
             self._auxArraySizeType(node)
             self.visit(node.type)
-       
+            node.typeaux = node.type.typeaux
+        
     def _auxArraySizeType(self, node):
         # look if the initialize index has type int (here the index is a variable) 
         if node.dim is not None:
@@ -449,7 +474,7 @@ class SemanticAnalyzer(NodeVisitor):
         self.visit(node.decl)
         
         # change to the function scope
-        print('ENTER Scope: %s' %node.decl.name.name)
+        #print('ENTER Scope: %s' %node.decl.name.name)
         procedure_scope = ScopedSymbolTable(
             scope_name = node.decl.name.name,
             scope_level = self.current_scope.scope_level + 1,
@@ -472,10 +497,10 @@ class SemanticAnalyzer(NodeVisitor):
         # visit the function body
         self.visit(node.body)
 
-        print(procedure_scope)
+        #print(procedure_scope)
         # leave the current function and get back to global scope
         self.current_scope = self.current_scope.enclosing_scope
-        print('LEAVE scope %s' %node.decl.name.name)
+        #print('LEAVE scope %s' %node.decl.name.name)
 
     def visit_FuncDecl(self, node):
         # check the params
@@ -628,7 +653,6 @@ class SemanticAnalyzer(NodeVisitor):
         _rtype = self._auxBinOp_typeof(node.right)
 
         assert _ltype == _rtype, f"ERROR: Type mismatch in the expression"
-        print(_ltype, _rtype)
         # Make sure the operation is supported
         _auxtype = self.current_scope.lookup(_ltype)
         assert (node.op in _auxtype.type.binary_ops) or (node.op in _auxtype.type.rel_ops), f"ERROR: Operation not supported by the language"

@@ -505,11 +505,12 @@ class FuncDef(Node):
     attr_names = ()
 
 class ID(Node):
-    __slots__ = ('name', 'coord', 'type')
-    def __init__(self, name, coord=None, type=None):
+    __slots__ = ('name', 'coord', 'type', 'value')
+    def __init__(self, name, coord=None, type=None, value=None):
         self.name = name
         self.coord = coord
         self.type = type
+        self.value = value
 
     def children(self):
         nodelist = []
@@ -522,11 +523,12 @@ class ID(Node):
     attr_names = ('name', )
 
 class InitList(Node):
-    __slots__ = ('exprs', 'coord', 'type')
-    def __init__(self, exprs, coord=None, type=None):
+    __slots__ = ('exprs', 'coord', 'type', 'values')
+    def __init__(self, exprs, coord=None, type=None, values=None):
         self.exprs = exprs
         self.coord = coord
         self.type = type
+        self.values = values
 
     def children(self):
         nodelist = []
@@ -581,11 +583,12 @@ class Decl(Node):
     attr_names = ('name',)
 
 class VarDecl(Node):
-    __slots__ = ('declname', 'type', 'coord')
-    def __init__(self, declname, type, coord=None):
+    __slots__ = ('declname', 'type', 'coord', 'value')
+    def __init__(self, declname, type, coord=None, value=None):
         self.declname = declname
         self.type = type
         self.coord = coord
+        self.value = value
 
     def children(self):
         nodelist = []
@@ -595,11 +598,15 @@ class VarDecl(Node):
     attr_names = ()
 
 class ArrayDecl(Node):
-    __slots__ = ('type', 'dim', 'coord')
-    def __init__(self, type, dim, coord=None):
+    __slots__ = ('type', 'dim', 'coord', 'typeaux', 'auxdim', 'values', 'name')
+    def __init__(self, type, dim, coord=None, value=None, auxdim=None, values=None, typeaux=None, name=None):
         self.type = type
         self.dim = dim
         self.coord = coord
+        self.typeaux = typeaux
+        self.auxdim = auxdim
+        self.values = values
+        self.name = name
 
     def children(self):
         nodelist = []
