@@ -16,6 +16,15 @@ class GenerateCode(NodeVisitor):
         # store some temporaries
         self.temps = {}
 
+        # ops dictionary
+        self.binaryop = {
+                            '+' : "add",
+                            '-' : "sub",
+                            '*' : "mul",
+                            '/' : "div",
+                            '%' : "mod" 
+                        }
+
         # The generated code (list of tuples)
         self.code = []
 
@@ -56,9 +65,12 @@ class GenerateCode(NodeVisitor):
     def visit_Decl(self, node):
         if isinstance(node.type, uc_ast.VarDecl):
             if node.init:
-                node.type.value = node.init.value
-                node.type.valuetmp = node.init
-                
+                if isinstance(node.init, uc_ast.Constant):
+                    node.type.value = node.init.value
+                    node.type.valuetmp = node.init
+                elif isinstance(node.init, uc_ast.BinaryOp):
+                    node.type.value = 1                         # kind of a boolean when a init value is an expression
+                    node.type.valuetmp = node.init              # pass the init type to call later and get processed
 
         self.visit(node.type)
 
@@ -79,6 +91,21 @@ class GenerateCode(NodeVisitor):
             
             # store the temporary used in dict
             self.temps[node.declname.name] = _tmp
+
+    def visit_BinaryOp(self, node):
+        # get left and right temporaries
+        _ltemp = self.visit(node.left)
+        _rtemp = self.visit(node.right)
+
+        # create a target to store result
+        _target = self.new_temp()
+
+        # process
+        inst = (self.binaryop[node.op]+"_"+node.type, _ltemp, _rtemp, _target)
+        self.code.append(inst)
+
+        # return the target used
+        return _target
 
     def visit_Constant(self, node):
         _gen = self.new_temp()
@@ -141,18 +168,20 @@ class GenerateCode(NodeVisitor):
             self.visit(_i)
 
     def visit_Return(self, node):
-        print(self.temps)
-
-    """def visit_Constant(self, node):
-        # Create a new temporary variable name 
-        target = self.new_temp()
-
-        # Make the SSA opcode and append to list of generated instructions
-        inst = ('literal_' + node.type.name, node.value, target)
+        inst = ('jump', self.temps['label1'])
+        self.code.append(inst)
+        inst = (self.temps['label1'][1:],)
         self.code.append(inst)
 
-        # Save the name of the temporary variable where the value was placed 
-        node.gen_location = target
+        if node.expr: # if has a return value
+            pass
+        else:
+            inst = ('return_void',)
+            self.code.append(inst)
+
+        print(self.temps)
+
+    """
 
     def visit_BinaryOp(self, node):
         # Visit the left and right expressions
