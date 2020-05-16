@@ -78,10 +78,12 @@ class GenerateCode(NodeVisitor):
                     node.type.valuetmp = node.init              # pass the init type to call later and get processed
         
         elif isinstance(node.type, uc_ast.ArrayDecl):
-    
             if isinstance(node.init, uc_ast.BinaryOp):
-                node.type.values = node.init 
+                node.type.values = node.init
+            if node.type.aux:
+                node.type.auxdim = node.type.aux
         
+
         self.visit(node.type)
 
 
@@ -128,18 +130,21 @@ class GenerateCode(NodeVisitor):
 
 
     def visit_ArrayDecl(self, node):
-        node.auxdim = node.aux
+        # get the dimension subscript to process
+        _underdim = ""
+        for _k in node.auxdim:
+            _underdim += "_"+str(_k)
+        
         if self.current_scope.scope_name == "global":
-            
             if node.values is None:
-                inst = ('global_'+ node.typeaux, '@'+ node.name)
+                inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name)
             else:
-                inst = ('global_'+ node.typeaux, '@'+ node.name, node.values)
+                inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name, node.values)
             self.code.append(inst)   
         else:
             _tmp = self.new_temp()
 
-            inst = ('alloc_'+ node.typeaux, _tmp)
+            inst = ('alloc_'+ node.typeaux + _underdim, _tmp)
             self.code.append(inst)
             
             if node.values:
@@ -153,7 +158,7 @@ class GenerateCode(NodeVisitor):
                 else:
                     # process the string initialized
                     _str = '@.str.'+str(self.str_counter)
-                    inst = ('global_'+node.typeaux, _str , node.values)
+                    inst = ('global_'+ node.typeaux + _underdim, _str , node.values)
                     self.str_counter += 1
                     # find where to declare in the code flow
                     _i = 0
@@ -163,7 +168,7 @@ class GenerateCode(NodeVisitor):
                     self.code.insert(_i, inst)
 
                     # store in the declared temporary
-                    inst = ('store_'+ node.typeaux, _str, _tmp)
+                    inst = ('store_'+ node.typeaux + _underdim, _str, _tmp)
                     self.code.append(inst)
                     
             self.temps[node.name] = _tmp

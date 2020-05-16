@@ -342,7 +342,7 @@ class SemanticAnalyzer(NodeVisitor):
                     # store the list of sizes in the node, helps in IR code gen
                     node.type.auxdim = _auxlistdim
                     node.type.aux = _auxlistdim
-                    
+
                     # get the init list as a list of every item type (eg. [[int],[int,int]]) and check if is the right init value
                     node.init.type = _typeaux
                     _auxlisttypes, _auxlistvalues= self.visit(node.init)
@@ -408,7 +408,25 @@ class SemanticAnalyzer(NodeVisitor):
                     assert node.init.type == _aux, f"ERROR: binary operation type not match"
             else: 
                 pass
-        
+        else:
+            if isinstance(node.type, uc_ast.ArrayDecl):
+                assert node.type.dim, f"ERROR: Array without init must have an index"
+                _dimaux = node.type
+                _auxlistdim = []
+
+                # here, get every index size value and the array type
+                while isinstance(_dimaux, uc_ast.ArrayDecl):
+                    _auxlistdim.append(_dimaux.dim.value)
+                    if isinstance(_dimaux.type, uc_ast.VarDecl):
+                        _typeaux = _dimaux.type.type.names[0]
+                        break
+                    else:
+                        _dimaux = _dimaux.type
+                
+                # store the list of sizes in the node, helps in IR code gen
+                node.type.auxdim = _auxlistdim
+                node.type.aux = _auxlistdim
+
         # to help IRgencode
         if isinstance(node.type, uc_ast.ArrayDecl):
             if node.type.dim != None:
