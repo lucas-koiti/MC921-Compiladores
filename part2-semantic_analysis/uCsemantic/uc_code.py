@@ -128,7 +128,6 @@ class GenerateCode(NodeVisitor):
         self.code.append(inst)
         return _gen
 
-
     def visit_ArrayDecl(self, node):
         # get the dimension subscript to process
         _underdim = ""
@@ -193,7 +192,7 @@ class GenerateCode(NodeVisitor):
 
 
     def visit_FuncDecl(self, node):
-        inst = ('define', node.type.declname.name)
+        inst = ('define', '@'+node.type.declname.name)
         self.code.append(inst)
 
         if node.type.declname.name == "main":
