@@ -1,3 +1,11 @@
-int a = 0;
-char c[] = "oi";
-int b[2][2] = {{1,2},{1,2}};
+int n = 3;
+
+
+void main(){
+    int a;
+    int b = 3;
+
+    a = 2;
+
+    return;
+}

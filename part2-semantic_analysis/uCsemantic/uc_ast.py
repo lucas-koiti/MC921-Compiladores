@@ -523,12 +523,13 @@ class ID(Node):
     attr_names = ('name', )
 
 class InitList(Node):
-    __slots__ = ('exprs', 'coord', 'type', 'values')
-    def __init__(self, exprs, coord=None, type=None, values=None):
+    __slots__ = ('exprs', 'coord', 'type', 'values', 'dimaux')
+    def __init__(self, exprs, coord=None, type=None, values=None, dimaux=[None]):
         self.exprs = exprs
         self.coord = coord
         self.type = type
         self.values = values
+        self.dimaux = dimaux
 
     def children(self):
         nodelist = []
@@ -583,12 +584,13 @@ class Decl(Node):
     attr_names = ('name',)
 
 class VarDecl(Node):
-    __slots__ = ('declname', 'type', 'coord', 'value')
-    def __init__(self, declname, type, coord=None, value=None):
+    __slots__ = ('declname', 'type', 'coord', 'value', 'valuetmp')
+    def __init__(self, declname, type, coord=None, value=None, valuetmp=None):
         self.declname = declname
         self.type = type
         self.coord = coord
         self.value = value
+        self.valuetmp = valuetmp
 
     def children(self):
         nodelist = []

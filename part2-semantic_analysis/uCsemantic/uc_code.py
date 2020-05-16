@@ -5,12 +5,16 @@ class GenerateCode(NodeVisitor):
     '''
     Node visitor class that creates 3-address encoded instruction sequences.
     '''
+
     def __init__(self):
         super(GenerateCode, self).__init__()
 
         # version dictionary for temporaries
         self.fname = 'main'  # We use the function name as a key
         self.versions = {self.fname:0}
+
+        # store some temporaries
+        self.temps = {}
 
         # The generated code (list of tuples)
         self.code = []
@@ -53,6 +57,8 @@ class GenerateCode(NodeVisitor):
         if isinstance(node.type, uc_ast.VarDecl):
             if node.init:
                 node.type.value = node.init.value
+                node.type.valuetmp = node.init
+                
 
         self.visit(node.type)
 
@@ -61,34 +67,81 @@ class GenerateCode(NodeVisitor):
             inst = ('global_'+ node.type.names[0], '@'+node.declname.name, node.value)
             self.code.append(inst)
         else:
-            # inside a func
-            pass
-        # allocate on stack memory
-        """inst = ('alloc_' + node.type.name, node.id)
+            # allocate on stack memory
+            _tmp = self.new_temp()
+            inst = ('alloc_' + node.type.names[0], _tmp)
+            self.code.append(inst)
+            # store optional init val
+            if node.value:
+                _gen = self.visit(node.valuetmp)
+                inst = ('store_' + node.type.names[0], _gen, _tmp)
+                self.code.append(inst)
+            
+            # store the temporary used in dict
+            self.temps[node.declname.name] = _tmp
+
+    def visit_Constant(self, node):
+        _gen = self.new_temp()
+        inst = ('literal_'+ node.type, node.value, _gen)
         self.code.append(inst)
-        # store optional init val
-        if node.value:
-            self.visit(node.value)
-            inst = ('store_' + node.type.name, node.value.gen_location, node.id)
-            self.code.append(inst)"""
+        return _gen
 
     def visit_ArrayDecl(self, node):
         if self.current_scope.scope_name == "global":
             _underdim = '_'+ str(node.auxdim[0])
             for _i in range(1,len(node.auxdim)):
                 _underdim += '_'+ str(node.auxdim[_i])
-            inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name, node.values)
+            if node.values is None:
+                inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name)
+            else:
+                inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name, node.values)
             self.code.append(inst)
             pass
         else:
             # inside a func
             pass
 
+    def visit_FuncDef(self, node):
+        # get into a new scope to help in any Decl
+        procedure_scope = ScopedSymbolTable(
+            scope_name = node.decl.name.name,
+            scope_level = self.current_scope.scope_level + 1,
+            enclosing_scope = self.current_scope
+        )
+        self.current_scope = procedure_scope
+        self.fname = self.current_scope.scope_name
+        
+        # func declaration
+        self.visit(node.decl)
+        
+        # func body
+        self.visit(node.body)
+        
+        # get out of the scope
+        self.temps.clear()
+        self.current_scope = self.current_scope.enclosing_scope
 
+    def visit_FuncDecl(self, node):
+        inst = ('define', node.type.declname.name)
+        self.code.append(inst)
 
+        if node.type.declname.name == "main":
+            self.temps['r0'] = self.new_temp()
+            self.temps['label1'] = self.new_temp()
 
+    def visit_Assignment(self, node):
+        _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
+        _target = self.temps[node.lvalue.name]              # access the global dict with declared variables
+        inst = ('store_'+ node.lvalue.type, _gen, _target)  
+        self.code.append(inst)
 
+    def visit_Compound(self, node):
+        # check every item in the block
+        for _i in node.block_items:
+            self.visit(_i)
 
+    def visit_Return(self, node):
+        print(self.temps)
 
     """def visit_Constant(self, node):
         # Create a new temporary variable name 

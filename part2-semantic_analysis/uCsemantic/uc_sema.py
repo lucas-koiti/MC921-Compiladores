@@ -279,11 +279,12 @@ class SemanticAnalyzer(NodeVisitor):
         # return a list with every item type
         _initlistaux = []
         _initvalues = []
-
+        
         for _i in range(len(node.exprs)):
             if isinstance(node.exprs[_i], uc_ast.InitList):
                 node.exprs[_i].type = node.type
                 n, k = self.visit(node.exprs[_i])
+                #node.dimaux.append(node.exprs[_i].dimaux)
                 _initlistaux.append(n)
                 _initvalues.append(k)
                 #_initlistaux.append(self.visit(node.exprs[_i]))
@@ -292,7 +293,6 @@ class SemanticAnalyzer(NodeVisitor):
                 if isinstance(node.exprs[_i], uc_ast.ID):
                     _typeaux = self.current_scope.lookup(node.exprs[_i].name)
                     assert _typeaux, f"ERROR: Variable: {node.exprs[_i].name} used in array initialization was not declared"
-                    print(_typeaux)
                     _typeaux = _typeaux.type.name
                     assert node.type == _typeaux, f"ERROR: Array contain a different type from initialization"
                     _initlistaux.append(_typeaux)
@@ -300,7 +300,8 @@ class SemanticAnalyzer(NodeVisitor):
                     assert node.type == node.exprs[_i].type, f"ERROR: Array contain a different type from initialization"
                     _initlistaux.append(node.exprs[_i].type)
                     _initvalues.append(node.exprs[_i].value)
-
+        
+        
         # assign the list of inits to the node, helps in IRcodegen
         #node.values = _initvalues
         #print(node.values)
@@ -321,14 +322,14 @@ class SemanticAnalyzer(NodeVisitor):
                 if node.type.dim is not None:
                     _dimaux = node.type
                     _auxlistdim = []
+
                     # here, get every index size value and the array type
                     while isinstance(_dimaux, uc_ast.ArrayDecl):
+                        _auxlistdim.append(_dimaux.dim.value)
                         if isinstance(_dimaux.type, uc_ast.VarDecl):
-                            _typeaux = _dimaux.type.type.names[0] 
-                            _auxlistdim.append(_dimaux.dim.value) 
+                            _typeaux = _dimaux.type.type.names[0]
                             break
                         else:
-                            _auxlistdim.append(_dimaux.type.dim.value)
                             _dimaux = _dimaux.type
                 
                     # store the list of sizes in the node, helps in IR code gen
@@ -336,7 +337,7 @@ class SemanticAnalyzer(NodeVisitor):
 
                     # get the init list as a list of every item type (eg. [[int],[int,int]]) and check if is the right init value
                     node.init.type = _typeaux
-                    _auxlisttypes, _auxlistvalues = self.visit(node.init)
+                    _auxlisttypes, _auxlistvalues= self.visit(node.init)
                 
                     # store the list of values in the node, helps in IR code gen
                     node.type.values = _auxlistvalues 
@@ -344,9 +345,10 @@ class SemanticAnalyzer(NodeVisitor):
                     # check if the index matches to init size
                     _tmp = _auxlisttypes
                     _i = 0
-                    
                     while _i < len(_auxlistdim):
-                        assert len(_tmp) == _auxlistdim[_i], f"ERROR: Array size mismatch - index:{len(_tmp)} size: {_auxlistdim[_i]}"
+                        if isinstance(_tmp, str):
+                            break
+                        assert len(_tmp) == _auxlistdim[_i], f"ERROR: Array size mismatch - index: {_auxlistdim[_i]} size:{len(_tmp)}"
                         _tmp = _tmp[0]
                         _i += 1
                     
@@ -354,6 +356,11 @@ class SemanticAnalyzer(NodeVisitor):
                 else:
                     for _i in node.init.exprs:
                         assert _i.type == node.type.type.type.names[0], f"ERROR: Array contain a different type from initialization"
+                    node.init.type = node.type.type.type.names[0]
+                    _aux, values = self.visit(node.init)
+                    node.type.auxdim = [len(_aux)]
+                    node.type.values = values
+
             # Constant can derives from a VarDecl or a String (ArrayDecl)
             elif isinstance(node.init, uc_ast.Constant):    
                 # Array
@@ -393,9 +400,11 @@ class SemanticAnalyzer(NodeVisitor):
                     assert node.init.type == _aux, f"ERROR: binary operation type not match"
             else: 
                 pass
-
+        
         # to help IRgencode
         if isinstance(node.type, uc_ast.ArrayDecl):
+            if node.type.dim != None:
+                node.type.auxdim = [node.type.dim.value]
             node.type.name = node.name.name
 
         # declare the symbol
