@@ -7,28 +7,35 @@ from uc_parser import UCParser
 ###################################
 
 class NodeVisitor(object):
-
+    """ Classe padrao de visita herdada por todas funcoes de visita em 
+    GenerateCode
+    """
     _method_cache = None
 
     def visit(self, node):
-        """ Visit a node.
+        """ Verifica se já existe o método de visita guardado no dicionario,
+        se não, obtem o callback, o adiciona e retorna
         """
-
         if self._method_cache is None:
             self._method_cache = {}
-
+        # temta obter o metodo do dicicionario de metodos
         visitor = self._method_cache.get(node.__class__.__name__, None)
         if visitor is None:
+            # se não emcontrar, cria o metodo
             method = 'visit_' + node.__class__.__name__
+            # tenta obter o metodo de visita especigico de CodeGen, se não encontrarm faz a visita generica
             visitor = getattr(self, method, self.generic_visit)
+            # adiciona o metodo de visita da funcao ao dicionario
             self._method_cache[node.__class__.__name__] = visitor
-
+        # retorna o callback da funcao
         return visitor(node)
+
 
     def generic_visit(self, node):
         """ Called if no explicit visitor function exists for a
             node. Implements preorder visiting of the node.
         """
+        # visita os elementos de __iter__ do node
         for c in node:
             self.visit(c)
 
