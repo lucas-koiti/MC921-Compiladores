@@ -600,8 +600,8 @@ class VarDecl(Node):
     attr_names = ()
 
 class ArrayDecl(Node):
-    __slots__ = ('type', 'dim', 'coord', 'typeaux', 'auxdim', 'values', 'name')
-    def __init__(self, type, dim, coord=None, value=None, auxdim=None, values=None, typeaux=None, name=None):
+    __slots__ = ('type', 'dim', 'coord', 'typeaux', 'auxdim', 'values', 'name', 'aux')
+    def __init__(self, type, dim, coord=None, value=None, auxdim=None, values=None, typeaux=None, name=None, aux=None):
         self.type = type
         self.dim = dim
         self.coord = coord
@@ -609,6 +609,7 @@ class ArrayDecl(Node):
         self.auxdim = auxdim
         self.values = values
         self.name = name
+        self.aux = aux
 
     def children(self):
         nodelist = []
