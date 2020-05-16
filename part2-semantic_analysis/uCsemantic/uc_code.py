@@ -15,6 +15,9 @@ class GenerateCode(NodeVisitor):
         # store some temporaries
         self.temps = {}
 
+        # string counter
+        self.str_counter = 0
+
         # ops dictionary
         self.binaryop = {
                             '+' : "add",
@@ -73,7 +76,12 @@ class GenerateCode(NodeVisitor):
                 elif isinstance(node.init, uc_ast.BinaryOp):
                     node.type.value = 1                         # kind of a boolean when a init value is an expression
                     node.type.valuetmp = node.init              # pass the init type to call later and get processed
-
+        
+        elif isinstance(node.type, uc_ast.ArrayDecl):
+    
+            if isinstance(node.init, uc_ast.BinaryOp):
+                node.type.values = node.init 
+        
         self.visit(node.type)
 
 
@@ -120,19 +128,45 @@ class GenerateCode(NodeVisitor):
 
 
     def visit_ArrayDecl(self, node):
+        node.auxdim = node.aux
         if self.current_scope.scope_name == "global":
-            _underdim = '_'+ str(node.auxdim[0])
-            for _i in range(1,len(node.auxdim)):
-                _underdim += '_'+ str(node.auxdim[_i])
+            
             if node.values is None:
-                inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name)
+                inst = ('global_'+ node.typeaux, '@'+ node.name)
             else:
-                inst = ('global_'+ node.typeaux + _underdim, '@'+ node.name, node.values)
-            self.code.append(inst)
-            pass
+                inst = ('global_'+ node.typeaux, '@'+ node.name, node.values)
+            self.code.append(inst)   
         else:
-            # inside a func
-            pass
+            _tmp = self.new_temp()
+
+            inst = ('alloc_'+ node.typeaux, _tmp)
+            self.code.append(inst)
+            
+            if node.values:
+                if isinstance(node.values, uc_ast.BinaryOp):
+                    # DARK ZONE, WHEN INITIALIZE WITH STRING CONCATENATE
+                    inst = ('alloc_'+node.typeaux+'_', _tmp)
+                    self.code.append(inst)
+                    _conc = self.visit(node.values)    
+                    inst = ('store_' + node.typeaux+", "+ _conc, _tmp)
+                    self.code.append(inst)   
+                else:
+                    # process the string initialized
+                    _str = '@.str.'+str(self.str_counter)
+                    inst = ('global_'+node.typeaux, _str , node.values)
+                    self.str_counter += 1
+                    # find where to declare in the code flow
+                    _i = 0
+                    while 'global' in self.code[_i][0]:
+                        _i += 1
+                    # insert in the right spot
+                    self.code.insert(_i, inst)
+
+                    # store in the declared temporary
+                    inst = ('store_'+ node.typeaux, _str, _tmp)
+                    self.code.append(inst)
+                    
+            self.temps[node.name] = _tmp
 
 
     def visit_FuncDef(self, node):
@@ -180,8 +214,9 @@ class GenerateCode(NodeVisitor):
         self.code.append(inst)
         inst = (self.temps['label1'][1:],)
         self.code.append(inst)
-
-        if node.expr: # if has a return value
+        
+        # if has a return value
+        if node.expr:
             pass
         else:
             inst = ('return_void',)
@@ -190,22 +225,6 @@ class GenerateCode(NodeVisitor):
         print(self.temps)
 
     """
-
-    def visit_BinaryOp(self, node):
-        # Visit the left and right expressions
-        self.visit(node.left)
-        self.visit(node.right)
-
-        # Make a new temporary for storing the result
-        target = self.new_temp()
-
-        # Create the opcode and append to list
-        opcode = binary_ops[node.op] + "_"+node.left.type.name
-        inst = (opcode, node.left.gen_location, node.right.gen_location, target)
-        self.code.append(inst)
-
-        # Store location of the result on the node
-        node.gen_location = target
 
     def visit_PrintStatement(self, node):
         # Visit the expression
@@ -216,17 +235,12 @@ class GenerateCode(NodeVisitor):
         self.code.append(inst)
 
     
-
     def visit_LoadLocation(self, node):
         target = self.new_temp()
         inst = ('load_' + node.type.name, node.name, target)
         self.code.append(inst)
         node.gen_location = target
 
-    def visit_AssignmentStatement(self, node):
-        self.visit(node.value)
-        inst = ('store_' + node.value.type.name, node.value.gen_location, node.location)
-        self.code.append(inst)
 
     def visit_UnaryOp(self, node):
         self.visit(node.left)

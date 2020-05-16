@@ -338,10 +338,11 @@ class SemanticAnalyzer(NodeVisitor):
                             break
                         else:
                             _dimaux = _dimaux.type
-                
+                    
                     # store the list of sizes in the node, helps in IR code gen
                     node.type.auxdim = _auxlistdim
-
+                    node.type.aux = _auxlistdim
+                    
                     # get the init list as a list of every item type (eg. [[int],[int,int]]) and check if is the right init value
                     node.init.type = _typeaux
                     _auxlisttypes, _auxlistvalues= self.visit(node.init)
