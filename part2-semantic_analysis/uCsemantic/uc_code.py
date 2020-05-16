@@ -5,7 +5,6 @@ class GenerateCode(NodeVisitor):
     '''
     Node visitor class that creates 3-address encoded instruction sequences.
     '''
-
     def __init__(self):
         super(GenerateCode, self).__init__()
 
@@ -27,6 +26,7 @@ class GenerateCode(NodeVisitor):
 
         # The generated code (list of tuples)
         self.code = []
+
 
     def new_temp(self):
         '''
@@ -57,11 +57,13 @@ class GenerateCode(NodeVisitor):
 
         self.current_scope = self.current_scope.enclosing_scope
 
+
     def visit_GlobalDecl(self, node):
         # Visit all decls
         for i in node.decls:
             self.visit(i)
     
+
     def visit_Decl(self, node):
         if isinstance(node.type, uc_ast.VarDecl):
             if node.init:
@@ -73,6 +75,7 @@ class GenerateCode(NodeVisitor):
                     node.type.valuetmp = node.init              # pass the init type to call later and get processed
 
         self.visit(node.type)
+
 
     def visit_VarDecl(self, node):
         if self.current_scope.scope_name == "global":
@@ -92,6 +95,7 @@ class GenerateCode(NodeVisitor):
             # store the temporary used in dict
             self.temps[node.declname.name] = _tmp
 
+
     def visit_BinaryOp(self, node):
         # get left and right temporaries
         _ltemp = self.visit(node.left)
@@ -107,11 +111,13 @@ class GenerateCode(NodeVisitor):
         # return the target used
         return _target
 
+
     def visit_Constant(self, node):
         _gen = self.new_temp()
         inst = ('literal_'+ node.type, node.value, _gen)
         self.code.append(inst)
         return _gen
+
 
     def visit_ArrayDecl(self, node):
         if self.current_scope.scope_name == "global":
@@ -128,6 +134,7 @@ class GenerateCode(NodeVisitor):
             # inside a func
             pass
 
+
     def visit_FuncDef(self, node):
         # get into a new scope to help in any Decl
         procedure_scope = ScopedSymbolTable(
@@ -137,16 +144,14 @@ class GenerateCode(NodeVisitor):
         )
         self.current_scope = procedure_scope
         self.fname = self.current_scope.scope_name
-        
         # func declaration
         self.visit(node.decl)
-        
         # func body
         self.visit(node.body)
-        
         # get out of the scope
         self.temps.clear()
         self.current_scope = self.current_scope.enclosing_scope
+
 
     def visit_FuncDecl(self, node):
         inst = ('define', node.type.declname.name)
@@ -156,16 +161,19 @@ class GenerateCode(NodeVisitor):
             self.temps['r0'] = self.new_temp()
             self.temps['label1'] = self.new_temp()
 
+
     def visit_Assignment(self, node):
         _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
         _target = self.temps[node.lvalue.name]              # access the global dict with declared variables
         inst = ('store_'+ node.lvalue.type, _gen, _target)  
         self.code.append(inst)
 
+
     def visit_Compound(self, node):
         # check every item in the block
         for _i in node.block_items:
             self.visit(_i)
+
 
     def visit_Return(self, node):
         inst = ('jump', self.temps['label1'])
