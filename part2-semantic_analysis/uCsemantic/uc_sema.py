@@ -18,7 +18,7 @@ class NodeVisitor(object):
         """
         if self._method_cache is None:
             self._method_cache = {}
-        # temta obter o metodo do dicicionario de metodos
+        # tenta obter o metodo do dicicionario de metodos
         visitor = self._method_cache.get(node.__class__.__name__, None)
         if visitor is None:
             # se não encontrar, cria o metodo
