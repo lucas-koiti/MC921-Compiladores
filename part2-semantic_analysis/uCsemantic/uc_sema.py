@@ -391,6 +391,7 @@ class SemanticAnalyzer(NodeVisitor):
 
             # init value is a parameter variable
             elif isinstance(node.init, uc_ast.ID):
+                self.visit(node.init)
                 _name = self.current_scope.lookup(node.init.name)
                 assert _name != None, f"ERROR: {node.init.name} was not declared"
                 _type = _name.type.name

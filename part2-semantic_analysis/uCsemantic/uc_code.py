@@ -25,8 +25,14 @@ class GenerateCode(NodeVisitor):
                             '-' : "sub",
                             '*' : "mul",
                             '/' : "div",
-                            '%' : "mod"
-                            '''relops''' 
+                            '%' : "mod",
+                            '==': "eq",
+                            '!=': "neq",
+                            '<' : "less",
+                            '>' : "big",
+                            '<=': "lt",
+                            '>=': "gt",
+                            '%=': "modeq"
                         }
 
         # The generated code (list of tuples)
@@ -81,11 +87,14 @@ class GenerateCode(NodeVisitor):
                 elif isinstance(node.init, uc_ast.FuncCall):
                     node.type.value = None
                     node.type.valuetmp = node.init
+                elif isinstance(node.init, uc_ast.ID):
+                    node.type.valuetmp = node.init
 
         elif isinstance(node.type, uc_ast.ArrayDecl):
             if isinstance(node.init, uc_ast.BinaryOp):
                 node.type.values = node.init
             if node.type.aux:
+                print(node.type.value)
                 node.type.auxdim = node.type.aux
         
 
@@ -97,6 +106,7 @@ class GenerateCode(NodeVisitor):
             self.code.append(inst)
             self.globals[node.declname.name] = node.value
         else:
+            
             # allocate on stack memory
             _tmp = self.new_temp()
             inst = ('alloc_' + node.type.names[0], _tmp)
@@ -114,6 +124,10 @@ class GenerateCode(NodeVisitor):
             if isinstance(node.valuetmp, uc_ast.FuncCall):
                 _freturn = self.visit(node.valuetmp)
                 inst = ('store_'+node.valuetmp.type, _freturn, _tmp)
+                self.code.append(inst)
+            elif isinstance(node.valuetmp, uc_ast.ID):
+                _idvalue = self.visit(node.valuetmp)
+                inst = ('store_'+node.valuetmp.type, _idvalue, _tmp)
                 self.code.append(inst)
 
     def visit_FuncCall(self, node):   
@@ -156,6 +170,8 @@ class GenerateCode(NodeVisitor):
         _target = self.new_temp()
 
         # process
+        if node.type == "bool": # in a rel ops the binary returns bool, but before it's a int compare
+            node.type = node.left.type
         inst = (self.binaryop[node.op]+"_"+node.type, _ltemp, _rtemp, _target)
         self.code.append(inst)
 
@@ -164,7 +180,9 @@ class GenerateCode(NodeVisitor):
 
     def visit_ID(self, node):
         # plus 1 because its the stored temporary used in FuncDecl
-        _src = self.temps.get(node.name+"1")
+        _src = self.temps.get(node.name+"1") # stored value in another temporary
+        if not _src:
+            _src = self.temps.get(node.name) # original temporary
         _target = self.new_temp()
         # in case the variable isn't in the scope, he consider it is in global
         if _src:  
@@ -310,6 +328,40 @@ class GenerateCode(NodeVisitor):
             self.code.append(inst)
             inst = ('return_void',)
             self.code.append(inst)
+
+    def visit_Assert(self, node):
+        _test = self.visit(node.expr)
+        _true = self.new_temp()
+        _false0 = self.new_temp()
+        _true1 = self.new_temp() # label to jump
+
+        # code flow
+        inst = ('cbranch', _test, _true, _false0)
+        self.code.append(inst)
+        inst = (_true[1:],) # label true
+        self.code.append(inst)
+        inst = ('jump', _true1) # temporary with the label true
+        self.code.append(inst)
+        inst = (_false0[1:],)
+        self.code.append(inst)
+        inst = ('print_string', '@.str.'+str(self.str_counter))
+        self.code.append(inst)
+        inst = ('jump', self.temps.get('label1'))
+        self.code.append(inst)
+        inst = (_true1[1:],)
+        self.code.append(inst)
+
+        # assertion fail str
+        inst = ('global_string', '@.str.'+str(self.str_counter), 'assertion_fail on '+str(node.coord.line)+':'+str(node.coord.column))
+        self.str_counter += 1
+        # find where to declare in the code flow
+        _i = 0
+        while 'global' in self.code[_i][0]:
+            _i += 1
+        # insert assertion fail in the top of code flow
+        self.code.insert(_i, inst)
+
+        
 
     def visit_Return(self, node):
         if node.expr:
