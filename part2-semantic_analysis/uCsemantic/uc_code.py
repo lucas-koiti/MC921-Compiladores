@@ -266,6 +266,7 @@ class GenerateCode(NodeVisitor):
             if isinstance(node.expr, uc_ast.BinaryOp):
                 _return = self.visit(node.expr)
                 inst = ('store_'+node.expr.type, _return, self.temps.get('return'))
+                self.code.append(inst)
             
             elif isinstance(node.expr, uc_ast.Constant):
                 _target = self.new_temp()
