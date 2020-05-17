@@ -572,3 +572,6 @@ class Interpreter(object):
     def run_fptosi(self, source, target):
         self._alloc_reg(target)
         M[self.vars[target]] = int(self._get_value(source))
+
+    def run_print_void(self):
+        pass
