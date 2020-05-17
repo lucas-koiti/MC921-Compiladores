@@ -1,7 +1,7 @@
 int main() {
     int n, r, temp;
     float sum = 0.;
-    print(enter the number = );
+    print("enter the number = ");
     read(n);
     temp = n;
     while(n > 0) {
@@ -10,8 +10,8 @@ int main() {
         n = n / 10;
     }
     if(temp == sum)
-        print(palindrome number );
+        print("palindrome number ");
     else
-        print(not palindrome);
+        print("not palindrome");
     return 0;
 }
