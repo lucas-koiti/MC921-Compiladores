@@ -78,7 +78,10 @@ class GenerateCode(NodeVisitor):
                 elif isinstance(node.init, uc_ast.BinaryOp):
                     node.type.value = 1                         # kind of a boolean when a init value is an expression
                     node.type.valuetmp = node.init              # pass the init type to call later and get processed
-        
+                elif isinstance(node.init, uc_ast.FuncCall):
+                    node.type.value = None
+                    node.type.valuetmp = node.init
+
         elif isinstance(node.type, uc_ast.ArrayDecl):
             if isinstance(node.init, uc_ast.BinaryOp):
                 node.type.values = node.init
@@ -106,6 +109,43 @@ class GenerateCode(NodeVisitor):
             
             # store the temporary used in dict
             self.temps[node.declname.name] = _tmp
+            
+            # store init value when its a func call result
+            if isinstance(node.valuetmp, uc_ast.FuncCall):
+                _freturn = self.visit(node.valuetmp)
+                inst = ('store_'+node.valuetmp.type, _freturn, _tmp)
+                self.code.append(inst)
+
+    def visit_FuncCall(self, node):   
+        if isinstance(node.args, uc_ast.ExprList):
+            for _k in node.args.exprs:
+                _target = self.new_temp()
+                _src = self.temps.get(_k.name)
+                inst = ('load_'+_k.type, _src, _target)
+                self.code.append(inst)
+                inst = ('param_'+_k.type, _target)
+                self.code.append(inst)
+        elif isinstance(node.args, uc_ast.ID):
+            _target = self.new_temp()
+            _src = self.temps.get(node.args.name)
+            inst = ('load_'+node.args.type, _src, _target)
+            self.code.append(inst)
+            inst = ('param_'+node.args.type, _target)
+            self.code.append(inst)
+
+        elif isinstance(node.args, uc_ast.Constant):
+            _target = self.new_temp()
+            inst = ('literal_'+node.args.type, node.args.value, _target)
+            self.code.append(inst)
+            inst = ('param_'+node.args.type, _target)
+            self.code.append(inst)
+        
+        _freturn = self.new_temp()
+        inst = ('call', '@'+node.name.name, _freturn)
+        self.code.append(inst)
+
+        return _freturn
+
 
     def visit_BinaryOp(self, node):
         # get left and right temporaries
@@ -274,6 +314,12 @@ class GenerateCode(NodeVisitor):
                 self.code.append(inst)
                 inst = ('store_'+node.expr.type, _target, self.temps.get('return'))
                 self.code.append(inst)
+            
+            elif isinstance(node.expr, uc_ast.ID):
+                _src = self.temps.get(node.expr.name)
+                _target = self.temps.get('return')
+                inst = ('store_'+node.expr.type, _src, _target)
+                self.code.append(inst)
                 
         inst = ('jump', self.temps['label1'])
         self.code.append(inst)
@@ -291,6 +337,13 @@ class GenerateCode(NodeVisitor):
                 self.code.append(inst)
             
             elif isinstance(node.expr, uc_ast.Constant):
+                _target = self.new_temp()
+                inst = ('load_'+node.expr.type, self.temps.get('return'), _target)
+                self.code.append(inst)
+                inst = ('return_'+node.expr.type, _target)
+                self.code.append(inst)
+            
+            elif isinstance(node.expr, uc_ast.ID):
                 _target = self.new_temp()
                 inst = ('load_'+node.expr.type, self.temps.get('return'), _target)
                 self.code.append(inst)
