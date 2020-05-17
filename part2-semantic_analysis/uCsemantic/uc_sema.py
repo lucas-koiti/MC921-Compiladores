@@ -748,8 +748,8 @@ class SemanticAnalyzer(NodeVisitor):
                     assert _functype.type.name == _i, f"ERROR: return value not match to the function type"
         else:
             _ret_types.append("void")
-            if _functype.type.name != _ret_types[0]:
-                print("WARNING: you're returning void, maybe you should consider return a value equal to the function's type")        
+            assert _functype.type.name != _ret_types[0], f"ERROR: return must be void"
+                        
 
     def visit_Assignment(self, node): 
         # visit the right side to see if its ok

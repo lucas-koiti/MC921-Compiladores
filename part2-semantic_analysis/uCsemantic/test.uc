@@ -1,11 +1,2 @@
-int n = 10;
-
-int foo(int a, int b) {
-    return n * (a + b);
-}
-
-int main() {
-    int c = 2, d = 3;
-    int e = foo(c, d);
-    return 0;
-}
+int x[] = {1, 2, 3};
+void main(){}
