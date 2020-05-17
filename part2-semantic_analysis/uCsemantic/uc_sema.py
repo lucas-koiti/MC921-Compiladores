@@ -406,8 +406,11 @@ class SemanticAnalyzer(NodeVisitor):
                     if _aux == "char": # here its an array, so we have a string
                         _aux = "string" 
                     assert node.init.type == _aux, f"ERROR: binary operation type not match"
-            else: 
-                pass
+            
+            elif isinstance(node.init, uc_ast.FuncCall): 
+                self.visit(node.init)
+                assert node.type.type.names[0] == node.init.type, f"ERROR: FunCall return does not match to VarDecl type"
+               
         else:
             if isinstance(node.type, uc_ast.ArrayDecl):
                 assert node.type.dim, f"ERROR: Array without init must have an index"
@@ -568,6 +571,7 @@ class SemanticAnalyzer(NodeVisitor):
             assert len(_params) == len(_exprlist), f"ERROR: Functioncall has missing/excede parameters"
             for _i in range(len(_params)):
                 if isinstance(_exprlist[_i], uc_ast.ID):
+                    self.visit(_exprlist[_i])
                     _type = self.current_scope.lookup(_exprlist[_i].name)
                     assert _type != None, f"ERROR: Functioncall has a parameter being a not declared variable"
                     _type = _type.type.name
@@ -577,15 +581,17 @@ class SemanticAnalyzer(NodeVisitor):
                 assert _params[_i][1] == _type, f"ERROR: FunctionCall has wrong types parameters"
         else:
             # case with a single parameter
-            assert node.args and (1 == len(_params)), f"ERROR: Function call has missing parameters"
-            if isinstance(node.args, uc_ast.ID):
-                    _type = self.current_scope.lookup(node.args.name)
-                    assert _type != None, f"ERROR: FunctionCall has a parameter being a not declared variable"
-                    _type = _type.type.name
-            else:
-                self.visit(node.args) 
-                _type = node.args.type
-            assert _params[0][1] == _type, f"ERROR: FunctionCall has wrong types parameters"
+            if node.args:
+                assert node.args and (1 == len(_params)), f"ERROR: Function call has missing/extra parameters"
+                if isinstance(node.args, uc_ast.ID):
+                        self.visit(node.args)
+                        _type = self.current_scope.lookup(node.args.name)
+                        assert _type != None, f"ERROR: FunctionCall has a parameter being a not declared variable"
+                        _type = _type.type.name
+                else:
+                    self.visit(node.args) 
+                    _type = node.args.type
+                assert _params[0][1] == _type, f"ERROR: FunctionCall has wrong types parameters"
         
         # return the function type - assign it to the node
         node.type = _auxfunc.type.name
@@ -727,6 +733,7 @@ class SemanticAnalyzer(NodeVisitor):
                     else:
                         _ret_types.append(node.expr.exprs[_i].type)   
             elif isinstance(node.expr, uc_ast.ID):
+                self.visit(node.expr)
                 _auxtype = self.current_scope.lookup(node.expr.name)
                 assert _auxtype is not None, f"ERROR: {node.expr.name} has no value to return"
                 _ret_types.append(_auxtype.type.name)
