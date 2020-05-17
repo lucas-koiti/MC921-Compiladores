@@ -14,6 +14,7 @@ class GenerateCode(NodeVisitor):
 
         # store some temporaries
         self.temps = {}
+        self.globals = {}
 
         # string counter
         self.str_counter = 0
@@ -24,7 +25,8 @@ class GenerateCode(NodeVisitor):
                             '-' : "sub",
                             '*' : "mul",
                             '/' : "div",
-                            '%' : "mod" 
+                            '%' : "mod"
+                            '''relops''' 
                         }
 
         # The generated code (list of tuples)
@@ -86,11 +88,11 @@ class GenerateCode(NodeVisitor):
 
         self.visit(node.type)
 
-
     def visit_VarDecl(self, node):
         if self.current_scope.scope_name == "global":
             inst = ('global_'+ node.type.names[0], '@'+node.declname.name, node.value)
             self.code.append(inst)
+            self.globals[node.declname.name] = node.value
         else:
             # allocate on stack memory
             _tmp = self.new_temp()
@@ -104,7 +106,6 @@ class GenerateCode(NodeVisitor):
             
             # store the temporary used in dict
             self.temps[node.declname.name] = _tmp
-
 
     def visit_BinaryOp(self, node):
         # get left and right temporaries
@@ -121,7 +122,20 @@ class GenerateCode(NodeVisitor):
         # return the target used
         return _target
 
+    def visit_ID(self, node):
+        # plus 1 because its the stored temporary used in FuncDecl
+        _src = self.temps.get(node.name+"1")
+        _target = self.new_temp()
+        # in case the variable isn't in the scope, he consider it is in global
+        if _src:  
+            inst = ('load_'+node.type, _src, _target)
+        else:
+            inst = ('load_'+node.type, '@'+node.name, _target)
+        
+        self.code.append(inst)
 
+        return _target
+         
     def visit_Constant(self, node):
         _gen = self.new_temp()
         inst = ('literal_'+ node.type, node.value, _gen)
@@ -196,9 +210,43 @@ class GenerateCode(NodeVisitor):
         self.code.append(inst)
 
         if node.type.declname.name == "main":
-            self.temps['r0'] = self.new_temp()
+            self.temps['return'] = self.new_temp()
             self.temps['label1'] = self.new_temp()
+        
+        else:
+            if node.args:
+                # create pass params temporaries
+                for _i in range(len(node.args.params)):
+                    self.temps[node.args.params[_i].name.name] = self.new_temp()
 
+                # create a temporary to store return value
+                self.temps['return'] = self.new_temp()
+                
+                # alloc temporaries to receive the params
+                for _k in range(len(node.args.params)):
+                    _tmp = self.new_temp()
+                    _type = node.args.params[_k].type.type.names[0]
+                    inst = ('alloc_'+_type, _tmp)
+                    self.code.append(inst)
+                    self.temps[node.args.params[_k].name.name+"1"] = _tmp
+
+                # store the params in the allocate temporaries
+                for _j in range(len(node.args.params)):
+                    _type = node.args.params[_j].type.type.names[0]
+                    _src = self.temps[node.args.params[_j].name.name]
+                    _target = self.temps[node.args.params[_j].name.name+"1"]
+                    inst = ('store_'+_type, _src, _target)
+                    self.code.append(inst)
+
+                    # look if it is necessary att the value in temps
+                    #self.temps[self.temps[node.args.params[_j].name.name]] = _target
+
+                # create a jump label to return
+                self.temps['label1'] = self.new_temp()
+            else:
+                # in @main we just need reserve temporaries to return and jump return
+                self.temps['return'] = self.new_temp()
+                self.temps['label1'] = self.new_temp()
 
     def visit_Assignment(self, node):
         _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
@@ -214,6 +262,18 @@ class GenerateCode(NodeVisitor):
 
 
     def visit_Return(self, node):
+        if node.expr:
+            if isinstance(node.expr, uc_ast.BinaryOp):
+                _return = self.visit(node.expr)
+                inst = ('store_'+node.expr.type, _return, self.temps.get('return'))
+            
+            elif isinstance(node.expr, uc_ast.Constant):
+                _target = self.new_temp()
+                inst = ('literal_'+node.expr.type, node.expr.value, _target)
+                self.code.append(inst)
+                inst = ('store_'+node.expr.type, _target, self.temps.get('return'))
+                self.code.append(inst)
+                
         inst = ('jump', self.temps['label1'])
         self.code.append(inst)
         inst = (self.temps['label1'][1:],)
@@ -221,12 +281,28 @@ class GenerateCode(NodeVisitor):
         
         # if has a return value
         if node.expr:
-            pass
+            if isinstance(node.expr, uc_ast.BinaryOp):
+                _target = self.new_temp()
+                # check here, node.expr.type works when its a binary operation
+                inst = ('load_'+node.expr.type, self.temps.get('return'), _target)
+                self.code.append(inst)
+                inst = ('return_'+node.expr.type, _target)
+                self.code.append(inst)
+            
+            elif isinstance(node.expr, uc_ast.Constant):
+                _target = self.new_temp()
+                inst = ('load_'+node.expr.type, self.temps.get('return'), _target)
+                self.code.append(inst)
+                inst = ('return_'+node.expr.type, _target)
+                self.code.append(inst)
+                
         else:
             inst = ('return_void',)
             self.code.append(inst)
 
         print(self.temps)
+        print(self.globals)
+
 
     """
 

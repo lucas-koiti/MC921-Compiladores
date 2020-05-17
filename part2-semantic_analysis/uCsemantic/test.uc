@@ -1,12 +1,13 @@
 
-float e[2][2] = {{1.,2.}, {1.,2.}};
+int n = 10;
 
+int foo(int a, int b){
 
-int main(){
-    int a[] = {1,2,3};
-    int b[2][3];
-    char c[] = "oi"; 
-    float d[2][2] = {{1.,2.}, {1.,2.}};
+    return n*(a+b);
+}
+
+int main() {
+    int a;
     
-    return;
+    return 0;
 }

@@ -711,7 +711,7 @@ class SemanticAnalyzer(NodeVisitor):
     
         return _params
     
-    def visit_Return(self, node): 
+    def visit_Return(self, node):
         # return a list of types
         _ret_types = []
         _scopename = self.current_scope.scope_name
