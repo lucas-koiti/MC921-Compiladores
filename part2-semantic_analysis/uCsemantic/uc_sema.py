@@ -18,10 +18,10 @@ class NodeVisitor(object):
         """
         if self._method_cache is None:
             self._method_cache = {}
-        # temta obter o metodo do dicicionario de metodos
+        # tenta obter o metodo do dicicionario de metodos
         visitor = self._method_cache.get(node.__class__.__name__, None)
         if visitor is None:
-            # se não emcontrar, cria o metodo
+            # se não encontrar, cria o metodo
             method = 'visit_' + node.__class__.__name__
             # tenta obter o metodo de visita especigico de CodeGen, se não encontrarm faz a visita generica
             visitor = getattr(self, method, self.generic_visit)
