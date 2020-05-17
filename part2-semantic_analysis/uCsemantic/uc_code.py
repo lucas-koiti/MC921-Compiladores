@@ -297,9 +297,19 @@ class GenerateCode(NodeVisitor):
 
     def visit_Compound(self, node):
         # check every item in the block
-        for _i in node.block_items:
-            self.visit(_i)
-
+        if node.block_items:
+            for _i in node.block_items:
+                self.visit(_i)
+            if not(isinstance(node.block_items[-1], uc_ast.Return)):
+                inst = ('1',)
+                self.code.append(inst)
+                inst = ('return_void',)
+                self.code.append(inst)
+        else:
+            inst = ('1',)
+            self.code.append(inst)
+            inst = ('return_void',)
+            self.code.append(inst)
 
     def visit_Return(self, node):
         if node.expr:

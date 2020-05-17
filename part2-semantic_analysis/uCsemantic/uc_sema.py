@@ -553,8 +553,9 @@ class SemanticAnalyzer(NodeVisitor):
 
     def visit_Compound(self, node):
         # check every item in the block
-        for _i in node.block_items:
-            self.visit(_i)
+        if node.block_items:
+            for _i in node.block_items:
+                self.visit(_i)
 
     def visit_FuncCall(self, node):
         # check if it is semantically ok
