@@ -27,14 +27,22 @@ class GenerateCode(NodeVisitor):
                             '/' : "div",
                             '%' : "mod",
                             '==': "eq",
-                            '!=': "neq",
-                            '<' : "less",
-                            '>' : "big",
-                            '<=': "lt",
-                            '>=': "gt",
+                            '!=': "ne",
+                            '<' : "lt",
+                            '>' : "gt",
+                            '<=': "le",
+                            '>=': "ge",
                             '%=': "modeq",
                             '&&': "and",
-                            '||': "or"
+                            '||': "or",
+                            '!' : "not"
+                        }
+        self.assignOp = {
+                            '+=': "add",
+                            '-=': "sub",
+                            '*=': "mul",
+                            '/=': "div",
+                            '%=': "mod"
                         }
 
         # The generated code (list of tuples)
@@ -99,10 +107,11 @@ class GenerateCode(NodeVisitor):
                 node.type.auxdim = node.type.aux
         
 
-        self.visit(node.type)
+        return self.visit(node.type)
 
 
     def visit_VarDecl(self, node):
+        _tmp = None
         if self.current_scope.scope_name == "global":
             inst = ('global_'+ node.type.names[0], '@'+node.declname.name, node.value)
             self.code.append(inst)
@@ -131,7 +140,7 @@ class GenerateCode(NodeVisitor):
                 _idvalue = self.visit(node.valuetmp)
                 inst = ('store_'+node.valuetmp.type, _idvalue, _tmp)
                 self.code.append(inst)
-
+        return _tmp
 
     def visit_FuncCall(self, node):   
         if isinstance(node.args, uc_ast.ExprList):
@@ -249,7 +258,7 @@ class GenerateCode(NodeVisitor):
                     self.code.append(inst)
                     
             self.temps[node.name] = _tmp
-
+        return _tmp
 
     def visit_FuncDef(self, node):
         # get into a new scope to help in any Decl
@@ -315,8 +324,21 @@ class GenerateCode(NodeVisitor):
     def visit_Assignment(self, node):
         _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
         _target = self.temps[node.lvalue.name]              # access the global dict with declared variables
-        inst = ('store_'+ node.lvalue.type, _gen, _target)  
-        self.code.append(inst)
+        
+        if node.op == "=":
+            inst = ('store_'+ node.lvalue.type, _gen, _target)  
+            self.code.append(inst)
+        else:
+            _tgt = self.new_temp()
+            inst = ('load_'+ node.lvalue.type, _target, _tgt)
+            self.code.append(inst)
+            _tgt1 = self.new_temp()
+            inst = (self.assignOp[node.op]+'_'+ node.lvalue.type, _gen, _tgt, _tgt1)
+            self.code.append(inst)
+            inst = ('store_'+ node.lvalue.type, _tgt1, _target)
+            self.code.append(inst)
+          
+        return _target
 
     def visit_UnaryOp(self, node):
         _elem = self.visit(node.expr)
@@ -429,6 +451,42 @@ class GenerateCode(NodeVisitor):
             self.code.append(inst)
         
         return _target
+    
+    def visit_For(self, node):
+        # start the 3 labels
+        _labelinit = self.new_temp()
+        _labelcont = self.new_temp()
+        _labelfinish = self.new_temp()
+
+        # first get the initial value
+        if isinstance(node.init, uc_ast.DeclList):
+            _cond = self.visit(node.init.decls[0])
+        elif isinstance(node.init, uc_ast.Assignment):
+            _cond = self.visit(node.init)
+        
+        # label to the init jump
+        inst = (_labelinit[1:],)
+        self.code.append(inst)
+        
+        # make the conditional op
+        _condop = self.visit(node.cond)
+        inst = ('cbranch', _condop, _labelcont, _labelfinish)
+        self.code.append(inst)
+        inst = (_labelcont[1:],)
+        self.code.append(inst)
+
+        # execute the body
+        self.visit(node.stmt)
+
+        # update the conditional
+        _condatt = self.visit(node.next)
+        inst = ('jump', _labelinit)
+        self.code.append(inst)
+
+        # label to finish
+        inst = (_labelfinish[1:],)
+        self.code.append(inst)
+
 
     def visit_Return(self, node):
         if node.expr:
@@ -495,20 +553,5 @@ class GenerateCode(NodeVisitor):
 
         # Create the opcode and append to list
         inst = ('print_' + node.expr.type.name, node.expr.gen_location)
-        self.code.append(inst)
-
-    
-    def visit_LoadLocation(self, node):
-        target = self.new_temp()
-        inst = ('load_' + node.type.name, node.name, target)
-        self.code.append(inst)
-        node.gen_location = target
-
-
-    def visit_UnaryOp(self, node):
-        self.visit(node.left)
-        target = self.new_temp()
-        opcode = unary_ops[node.op] + "_" + node.left.type.name
-        inst = (opcode, node.left.gen_location)
-        self.code.append(inst)
-        node.gen_location = target"""
+        self.code.append(inst)"""
+ 

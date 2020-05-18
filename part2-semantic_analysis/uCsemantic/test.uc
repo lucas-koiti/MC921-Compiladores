@@ -1,9 +1,12 @@
 int main () {
-    int x = 2, y, z;
-    y = ++x;
-    z = x++;
+    int i, j ;
+    i = 1;
+    j = 2;
+    
+    for (int k=1; k<10; k++)
+        i += j * k;
 
-    assert x == 4 && y == z;
+    assert i == 91;
 
-    return 1;
+    return 0;
 }
