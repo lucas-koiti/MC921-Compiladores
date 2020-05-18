@@ -139,6 +139,7 @@ class VarSymbol(Symbol):
 
     __repr__ = __str__
 
+# TODO tinha adicionado dim aqui
 class ArraySymbol(Symbol):
     def __init__(self, name, type, auxtype=None):
             super().__init__(name, type)
@@ -227,11 +228,11 @@ class ScopedSymbolTable(object):
     __repr__ = __str__
 
     def insert(self, symbol):
-        #print('Insert: %s' % symbol.name)
+        # print('Insert: %s' % symbol.name)
         self._symbols[symbol.name] = symbol
 
     def lookup(self, name, current_scope_only=False):
-        #print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
+        # print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
         # 'symbol' is either an instance of the Symbol class or None
         symbol = self._symbols.get(name)
 
@@ -321,7 +322,6 @@ class SemanticAnalyzer(NodeVisitor):
         # check if the var was already declared in the current_scope (don't look to the global)
         _temp = self.current_scope.lookup(name, True) 
         assert not _temp, f"ERROR: {name} declared multiple times"
-    
         # check if the declaration has an init value
         if node.init:
             # InitList is an array initialized
@@ -329,7 +329,6 @@ class SemanticAnalyzer(NodeVisitor):
                 if node.type.dim is not None:
                     _dimaux = node.type
                     _auxlistdim = []
-
                     # here, get every index size value and the array type
                     while isinstance(_dimaux, uc_ast.ArrayDecl):
                         _auxlistdim.append(_dimaux.dim.value)
@@ -338,18 +337,14 @@ class SemanticAnalyzer(NodeVisitor):
                             break
                         else:
                             _dimaux = _dimaux.type
-                    
                     # store the list of sizes in the node, helps in IR code gen
                     node.type.auxdim = _auxlistdim
                     node.type.aux = _auxlistdim
-
                     # get the init list as a list of every item type (eg. [[int],[int,int]]) and check if is the right init value
                     node.init.type = _typeaux
                     _auxlisttypes, _auxlistvalues= self.visit(node.init)
-                
                     # store the list of values in the node, helps in IR code gen
                     node.type.values = _auxlistvalues 
-
                     # check if the index matches to init size
                     _tmp = _auxlisttypes
                     _i = 0
@@ -359,7 +354,6 @@ class SemanticAnalyzer(NodeVisitor):
                         assert len(_tmp) == _auxlistdim[_i], f"ERROR: Array size mismatch - index: {_auxlistdim[_i]} size:{len(_tmp)}"
                         _tmp = _tmp[0]
                         _i += 1
-                    
                 #check items type when dim is []
                 else:
                     for _i in node.init.exprs:
@@ -368,14 +362,12 @@ class SemanticAnalyzer(NodeVisitor):
                     _aux, values = self.visit(node.init)
                     node.type.auxdim = [len(_aux)]
                     node.type.values = values
-
             # Constant can derives from a VarDecl or a String (ArrayDecl)
             elif isinstance(node.init, uc_ast.Constant):    
                 # Array
                 if isinstance(node.type, uc_ast.VarDecl):
                     const_type = node.init.type
                     assert const_type == node.type.type.names[0], f"ERROR: Type not match"
-                
                 # String
                 elif isinstance(node.type, uc_ast.ArrayDecl):
                     const_type = node.init.type
@@ -388,7 +380,6 @@ class SemanticAnalyzer(NodeVisitor):
                     node.type.typeaux = "string"
                     node.type.auxdim = [len(node.init.value)-2]
                     node.type.values = node.init.value[1:-1]
-
             # init value is a parameter variable
             elif isinstance(node.init, uc_ast.ID):
                 self.visit(node.init)
@@ -396,7 +387,6 @@ class SemanticAnalyzer(NodeVisitor):
                 assert _name != None, f"ERROR: {node.init.name} was not declared"
                 _type = _name.type.name
                 assert _type == node.type.type.names[0], f"ERROR: {_name.name} type not match"
-            
             # init value derives from a binary operation
             elif isinstance(node.init, uc_ast.BinaryOp):
                 self.visit(node.init)
@@ -410,8 +400,7 @@ class SemanticAnalyzer(NodeVisitor):
             
             elif isinstance(node.init, uc_ast.FuncCall): 
                 self.visit(node.init)
-                assert node.type.type.names[0] == node.init.type, f"ERROR: FunCall return does not match to VarDecl type"
-               
+                assert node.type.type.names[0] == node.init.type, f"ERROR: FunCall return does not match to VarDecl type"   
         else:
             if isinstance(node.type, uc_ast.ArrayDecl):
                 assert node.type.dim, f"ERROR: Array without init must have an index"
@@ -426,11 +415,9 @@ class SemanticAnalyzer(NodeVisitor):
                         break
                     else:
                         _dimaux = _dimaux.type
-                
                 # store the list of sizes in the node, helps in IR code gen
                 node.type.auxdim = _auxlistdim
                 node.type.aux = _auxlistdim
-
         # to help IRgencode
         if isinstance(node.type, uc_ast.ArrayDecl):
             if node.type.dim != None:
@@ -440,13 +427,16 @@ class SemanticAnalyzer(NodeVisitor):
         # declare the symbol
         self.visit(node.type)
 
+
     def visit_VarDecl(self, node):
         var_name = node.declname.name
         type_symbol = self.current_scope.lookup(node.type.names[0])
+
         assert type_symbol is not None, f"ERROR: Type not defined in language"
-        var_symbol = VarSymbol(var_name, type_symbol) #TODO look how make it with arrays (ferra tip: use list of type)
-        
+
+        var_symbol = VarSymbol(var_name, type_symbol) 
         self.current_scope.insert(var_symbol)
+
 
     def visit_ArrayDecl(self, node):
         if isinstance(node.type, uc_ast.VarDecl):
@@ -457,15 +447,14 @@ class SemanticAnalyzer(NodeVisitor):
             node.typeaux = type_symbol.name
             # check size and type
             self._auxArraySizeType(node)
-
             # array decl can be an array or a string
             if type_symbol.name == "char":
                 type_symbol = self.current_scope.lookup("string")
             else:    
                 type_symbol = self.current_scope.lookup("array")
-            var_symbol = ArraySymbol(var_name, type_symbol, _auxtype)
-            self.current_scope.insert(var_symbol)   
 
+            var_symbol = ArraySymbol(var_name, type_symbol, _auxtype)
+            self.current_scope.insert(var_symbol)
         # recursively access to more than one dimension v[][]..
         else:
             # check size and types in every level
@@ -473,6 +462,7 @@ class SemanticAnalyzer(NodeVisitor):
             self.visit(node.type)
             node.typeaux = node.type.typeaux
         
+
     def _auxArraySizeType(self, node):
         # look if the initialize index has type int (here the index is a variable) 
         if node.dim is not None:
@@ -482,6 +472,7 @@ class SemanticAnalyzer(NodeVisitor):
                 assert aux_type.type.name == "int", f"ERROR: Array index must be of type int"
             else:
                 assert node.dim.type == "int", f"ERROR: Array index must be of type int"
+
 
     def visit_ArrayRef(self, node):
         if isinstance(node.name, uc_ast.ID):
@@ -498,6 +489,7 @@ class SemanticAnalyzer(NodeVisitor):
             self._ArrayRefCheck(node)
             node.type = self.visit(node.name)
 
+
     def _ArrayRefCheck(self, node):
         # check if the reference is semantic correct
         _index = node.subscript
@@ -507,6 +499,7 @@ class SemanticAnalyzer(NodeVisitor):
             assert _aux.type.name == "int", f"ERROR: Array index reference must be of int type"
         else:
             assert node.subscript.type == "int", f"ERROR: Array index reference must be of int type"
+
 
     def visit_FuncDef(self, node):
         # visit the decl to see if its possible put the function symbol in the table
@@ -532,14 +525,12 @@ class SemanticAnalyzer(NodeVisitor):
             assert not self.current_scope.lookup(p_name, True), f"ERROR: {p_name} declared multiple times"
             var_symbol = VarSymbol(p_name, p_type)
             self.current_scope.insert(var_symbol)
-
         # visit the function body
         self.visit(node.body)
-
-        #print(procedure_scope)
         # leave the current function and get back to global scope
         self.current_scope = self.current_scope.enclosing_scope
         #print('LEAVE scope %s' %node.decl.name.name)
+
 
     def visit_FuncDecl(self, node):
         # check the params
@@ -552,11 +543,13 @@ class SemanticAnalyzer(NodeVisitor):
         _funcaux = FuncSymbol(node.type.declname.name, _functype, _params)
         self.current_scope.insert(_funcaux)
 
+
     def visit_Compound(self, node):
         # check every item in the block
         if node.block_items:
             for _i in node.block_items:
                 self.visit(_i)
+
 
     def visit_FuncCall(self, node):
         # check if it is semantically ok
@@ -599,6 +592,7 @@ class SemanticAnalyzer(NodeVisitor):
         node.type = _auxfunc.type.name
         return node.type
 
+
     def visit_For(self, node):
         # visit every node
         if node.init != None:  
@@ -610,10 +604,12 @@ class SemanticAnalyzer(NodeVisitor):
         #assert node.stmt.block_items, f"ERROR: (For) must have an statement"
         self.visit(node.stmt)
     
+
     def visit_While(self, node):
         # just visi the condition and statement
         self.visit(node.cond)
         self.visit(node.stmt)
+
 
     def visit_If(self, node):
         # check if has a declared statement in iftrue and go to visit iffalse if there is an statement there

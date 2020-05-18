@@ -100,6 +100,7 @@ class GenerateCode(NodeVisitor):
 
         self.visit(node.type)
 
+
     def visit_VarDecl(self, node):
         if self.current_scope.scope_name == "global":
             inst = ('global_'+ node.type.names[0], '@'+node.declname.name, node.value)
@@ -129,6 +130,7 @@ class GenerateCode(NodeVisitor):
                 _idvalue = self.visit(node.valuetmp)
                 inst = ('store_'+node.valuetmp.type, _idvalue, _tmp)
                 self.code.append(inst)
+
 
     def visit_FuncCall(self, node):   
         if isinstance(node.args, uc_ast.ExprList):
@@ -194,11 +196,13 @@ class GenerateCode(NodeVisitor):
 
         return _target
          
+         
     def visit_Constant(self, node):
         _gen = self.new_temp()
         inst = ('literal_'+ node.type, node.value, _gen)
         self.code.append(inst)
         return _gen
+
 
     def visit_ArrayDecl(self, node):
         # get the dimension subscript to process
