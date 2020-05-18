@@ -447,10 +447,7 @@ class SemanticAnalyzer(NodeVisitor):
             node.typeaux = type_symbol.name
             # check size and type
             self._auxArraySizeType(node)
-<<<<<<< HEAD
             
-=======
->>>>>>> 54dc42b44ecc45b9973acfe2b523ec14c6280cd7
             # array decl can be an array or a string
             if type_symbol.name == "char":
                 type_symbol = self.current_scope.lookup("string")
