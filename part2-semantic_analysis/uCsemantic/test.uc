@@ -1,10 +1,12 @@
 int main () {
-    int i, j ;
+    int i, j, k = 0;
     i = 1;
     j = 2;
     
-    for (int k=1; k<10; k++)
+    while (3){
         i += j * k;
+        k++;
+    }
 
     assert i == 91;
 

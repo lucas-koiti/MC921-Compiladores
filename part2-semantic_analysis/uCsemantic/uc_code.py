@@ -397,11 +397,6 @@ class GenerateCode(NodeVisitor):
         if node.block_items:
             for _i in node.block_items:
                 self.visit(_i)
-            if not(isinstance(node.block_items[-1], uc_ast.Return)):
-                inst = ('1',)
-                self.code.append(inst)
-                inst = ('return_void',)
-                self.code.append(inst)
         else:
             inst = ('1',)
             self.code.append(inst)
@@ -487,6 +482,34 @@ class GenerateCode(NodeVisitor):
         inst = (_labelfinish[1:],)
         self.code.append(inst)
 
+
+    def visit_While(self, node):
+         # start the 3 jump labels
+        _labelinit = self.new_temp()
+        _labelcont = self.new_temp()
+        _labelfinish = self.new_temp()
+
+        # label to the init jump
+        inst = (_labelinit[1:],)
+        self.code.append(inst)
+
+        # conditional op
+        _cond = self.visit(node.cond)
+        inst = ('cbranch', _cond, _labelcont, _labelfinish)
+        self.code.append(inst)
+        inst = (_labelcont[1:],)
+        self.code.append(inst)
+
+        # execute the body ( where the conditional is att)
+        self.visit(node.stmt)
+
+        # if gets here, jump to the init
+        inst = ('jump', _labelinit)
+        self.code.append(inst)
+
+        # label to finish
+        inst = (_labelfinish[1:],)
+        self.code.append(inst)
 
     def visit_Return(self, node):
         if node.expr:
