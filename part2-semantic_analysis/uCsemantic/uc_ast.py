@@ -151,11 +151,12 @@ class ParamList(Node):
     attr_names = ()
 
 class Cast(Node):
-    __slots__ = ('to_type', 'expr', 'coord')
-    def __init__(self, to_type, expr, coord=None):
+    __slots__ = ('to_type', 'expr', 'coord', 'type')
+    def __init__(self, to_type, expr, coord=None, type=None):
         self.to_type = to_type
         self.expr = expr
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
