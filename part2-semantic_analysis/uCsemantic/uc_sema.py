@@ -608,6 +608,10 @@ class SemanticAnalyzer(NodeVisitor):
 
     def visit_While(self, node):
         # just visi the condition and statement
+        #assert node.cond, f"ERROR: While conditional must have an expression, not empty"
+        assert not isinstance(node.cond, uc_ast.ID), f"ERROR: While conditional must have an expression"
+        assert not isinstance(node.cond, uc_ast.Constant), f"ERROR: While conditional must have an expression"
+        
         self.visit(node.cond)
         self.visit(node.stmt)
 
@@ -749,7 +753,7 @@ class SemanticAnalyzer(NodeVisitor):
                     assert _functype.type.name == _i, f"ERROR: return value not match to the function type"
         else:
             _ret_types.append("void")
-            assert _functype.type.name == _ret_types[0], f"ERROR: return must be void"
+            assert _functype.type.name == _ret_types[0], f"ERROR: return must have the same function type"
                         
 
     def visit_Assignment(self, node): 
