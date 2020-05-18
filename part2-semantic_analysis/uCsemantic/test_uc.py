@@ -370,6 +370,7 @@ def check_output(test_name: str, res: [(str)])->bool:
                 print(f"{line} está incorreto (linha {idx})")
     else:
         test = False
+        print("Não extraiu nenhuma linha do arquivo .ir")
     
     return test
 
