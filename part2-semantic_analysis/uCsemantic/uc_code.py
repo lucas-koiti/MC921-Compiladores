@@ -32,7 +32,9 @@ class GenerateCode(NodeVisitor):
                             '>' : "big",
                             '<=': "lt",
                             '>=': "gt",
-                            '%=': "modeq"
+                            '%=': "modeq",
+                            '&&': "and",
+                            '||': "or"
                         }
 
         # The generated code (list of tuples)
@@ -94,7 +96,6 @@ class GenerateCode(NodeVisitor):
             if isinstance(node.init, uc_ast.BinaryOp):
                 node.type.values = node.init
             if node.type.aux:
-                print(node.type.value)
                 node.type.auxdim = node.type.aux
         
 
@@ -171,7 +172,8 @@ class GenerateCode(NodeVisitor):
 
         # process
         if node.type == "bool": # in a rel ops the binary returns bool, but before it's a int compare
-            node.type = node.left.type
+            if node.op != "&&" and node.op != "||":
+                node.type = node.left.type
         inst = (self.binaryop[node.op]+"_"+node.type, _ltemp, _rtemp, _target)
         self.code.append(inst)
 
@@ -312,6 +314,57 @@ class GenerateCode(NodeVisitor):
         inst = ('store_'+ node.lvalue.type, _gen, _target)  
         self.code.append(inst)
 
+    def visit_UnaryOp(self, node):
+        _elem = self.visit(node.expr)
+        _one = self.new_temp()
+        _target = self.new_temp()
+        
+        if node.op == "++" or node.op == "p++":
+            inst = ('literal_'+node.expr.type, 1, _one)
+            self.code.append(inst)
+            inst = ('add_'+node.expr.type, _elem, _one, _target)
+            self.code.append(inst)
+            if node.op == "++":
+                _aux = _target          # x = x++ -> z = x
+            else:
+                _aux = _elem            # x = x++ -> z = x
+        elif node.op == "--" or node.op == "p--":
+            inst = ('literal_'+node.expr.type, 1, _one)
+            self.code.append(inst)
+            inst = ('sub_'+node.expr.type, _elem, _one, _target)
+            self.code.append(inst)
+            if node.op == "--":
+                _aux = _target
+            else:
+                _aux = _elem    
+        elif node.op == "-":
+            inst = ('literal_'+node.expr.type, -1, _one)
+            self.code.append(inst)
+            inst = ('mul_'+node.expr.type, _elem, _one, _target)
+            self.code.append(inst)
+            _aux = _target
+        elif node.op == "+":
+            inst = ('literal_'+node.expr.type, 1, _one)
+            self.code.append(inst)
+            inst = ('mul_'+node.expr.type, _elem, _one, _target)
+            self.code.append(inst)
+            _aux = _target
+        
+        # here we find the temporary used by the variable
+        # plus 1 because its the stored temporary used in FuncDecl (not main)
+        _src = self.temps.get(node.expr.name+"1") # stored value in another temporary
+        if not _src:
+            _src = self.temps.get(node.expr.name) # original temporary
+        # in case the variable isn't in the scope, he consider it is in global
+        if _src:  
+            inst = ('store_'+node.expr.type, _target, _src)
+        else:
+            inst = ('store_'+node.expr.type, _target ,'@'+node.expr.name)
+        
+        self.code.append(inst)
+
+        return _aux 
+
 
     def visit_Compound(self, node):
         # check every item in the block
@@ -361,7 +414,17 @@ class GenerateCode(NodeVisitor):
         # insert assertion fail in the top of code flow
         self.code.insert(_i, inst)
 
+    def visit_Cast(self, node):
+        _src = self.visit(node.expr)   
+        _target = self.new_temp()
+        if node.to_type.names[0] == "float":
+            inst = ('sitofp', _src, _target)
+            self.code.append(inst)
+        else:
+            inst = ('fptosi', _src, _target)
+            self.code.append(inst)
         
+        return _target
 
     def visit_Return(self, node):
         if node.expr:

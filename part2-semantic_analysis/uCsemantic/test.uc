@@ -1,12 +1,9 @@
-int n = 3;
+int main () {
+    int x = 2, y, z;
+    y = ++x;
+    z = x++;
 
-int doubleMe (int x) {
-    return x * x;
-}
+    assert x == 4 && y == z;
 
-void main () {
-    int v = n;
-    v = doubleMe (v);
-    assert v == n * n;
-    return;
+    return 1;
 }
