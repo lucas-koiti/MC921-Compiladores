@@ -457,7 +457,7 @@ class SemanticAnalyzer(NodeVisitor):
             node.typeaux = type_symbol.name
             # check size and type
             self._auxArraySizeType(node)
-
+            
             # array decl can be an array or a string
             if type_symbol.name == "char":
                 type_symbol = self.current_scope.lookup("string")
@@ -625,6 +625,7 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_Cast(self, node):
         # visit the expr to validate
         self.visit(node.expr)
+        node.type = node.to_type.names[0]
 
     def visit_Assert(self, node):
         # visit the expr to validate
@@ -645,6 +646,7 @@ class SemanticAnalyzer(NodeVisitor):
 
     def visit_UnaryOp(self, node):
         if isinstance(node.expr, uc_ast.ID):
+            self.visit(node.expr)
             _name = node.expr.name
         else: # not sure if a unaryop is always over an ID
             print("dude, look for error here")
@@ -786,7 +788,7 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_EmptyStatement(self, node):
         pass
 
-#TODO list of NODES i think don't need be visited
+# list of unused nodes
     # def visit_Constant(self, node):
     # def visit_DeclList(self, node):
     # def visit_Type(self, node):
