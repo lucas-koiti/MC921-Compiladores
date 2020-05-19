@@ -196,6 +196,7 @@ class GenerateCode(NodeVisitor):
         if not _src:
             _src = self.temps.get(node.name) # original temporary
         _target = self.new_temp()
+        
         # in case the variable isn't in the scope, he consider it is in global
         if _src:  
             inst = ('load_'+node.type, _src, _target)
@@ -379,13 +380,13 @@ class GenerateCode(NodeVisitor):
                     _type = node.args.params[_k].type.type.names[0]
                     inst = ('alloc_'+_type, _tmp)
                     self.code.append(inst)
-                    self.temps[node.args.params[_k].name.name+"1"] = _tmp
+                    self.temps[node.args.params[_k].name.name] = _tmp
 
                 # store the params in the allocate temporaries
                 for _j in range(len(node.args.params)):
                     _type = node.args.params[_j].type.type.names[0]
                     _src = self.temps[node.args.params[_j].name.name]
-                    _target = self.temps[node.args.params[_j].name.name+"1"]
+                    _target = self.temps[node.args.params[_j].name.name]
                     inst = ('store_'+_type, _src, _target)
                     self.code.append(inst)
 
@@ -474,10 +475,7 @@ class GenerateCode(NodeVisitor):
             _aux = _target
         
         # here we find the temporary used by the variable
-        # plus 1 because its the stored temporary used in FuncDecl (not main)
-        _src = self.temps.get(node.expr.name+"1") # stored value in another temporary
-        if not _src:
-            _src = self.temps.get(node.expr.name) # original temporary
+        _src = self.temps.get(node.expr.name) 
         # in case the variable isn't in the scope, he consider it is in global
         if _src:  
             inst = ('store_'+node.expr.type, _target, _src)
