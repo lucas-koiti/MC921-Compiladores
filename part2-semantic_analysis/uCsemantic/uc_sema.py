@@ -139,11 +139,12 @@ class VarSymbol(Symbol):
 
     __repr__ = __str__
 
-# TODO tinha adicionado dim aqui
+
 class ArraySymbol(Symbol):
-    def __init__(self, name, type, auxtype=None):
+    def __init__(self, name, type, auxtype=None, indexaux=None):
             super().__init__(name, type)
             self.auxtype = auxtype
+            self.indexaux = indexaux
 
     def __str__(self):
         return "<{class_name}(name='{name}', type='{type}, auxtype='{auxtype}')>".format(
@@ -421,9 +422,22 @@ class SemanticAnalyzer(NodeVisitor):
         # to help IRgencode
         if isinstance(node.type, uc_ast.ArrayDecl):
             if node.type.dim != None:
-                node.type.auxdim = [node.type.dim.value]
+                #node.type.auxdim = [node.type.dim.value]
+                _dimaux = node.type
+                _auxlistdim = []
+                # here, get every index size value and the array type
+                while isinstance(_dimaux, uc_ast.ArrayDecl):
+                    _auxlistdim.append(_dimaux.dim.value)
+                    if isinstance(_dimaux.type, uc_ast.VarDecl):
+                        _typeaux = _dimaux.type.type.names[0]
+                        break
+                    else:
+                        _dimaux = _dimaux.type
+                # store the list of sizes in the node, helps in IR code gen
+                node.type.auxdim = _auxlistdim
+                node.type.aux = _auxlistdim
             node.type.name = node.name.name
-
+            
         # declare the symbol
         self.visit(node.type)
 
@@ -453,15 +467,17 @@ class SemanticAnalyzer(NodeVisitor):
                 type_symbol = self.current_scope.lookup("string")
             else:    
                 type_symbol = self.current_scope.lookup("array")
-
-            var_symbol = ArraySymbol(var_name, type_symbol, _auxtype)
+            
+            var_symbol = ArraySymbol(var_name, type_symbol, _auxtype, node.auxdim)
             self.current_scope.insert(var_symbol)
         # recursively access to more than one dimension v[][]..
         else:
             # check size and types in every level
             self._auxArraySizeType(node)
+            node.type.auxdim = node.auxdim
             self.visit(node.type)
             node.typeaux = node.type.typeaux
+            
         
 
     def _auxArraySizeType(self, node):
@@ -477,45 +493,42 @@ class SemanticAnalyzer(NodeVisitor):
 
     def visit_ArrayRef(self, node):
         _idx = []
-        if isinstance(node.name, uc_ast.ID):
-            self.visit(node.name)
-            # check semantics
-            _name = node.name.name
-            _symbol = self.current_scope.lookup(_name)
-            assert _symbol, f"ERROR: Reference to a undeclared array {_name}"
-            self._ArrayRefCheck(node)
-            # return the array type - assign it to the node
+        _nodeaux = node.name
+        # multidim array
+        if isinstance(node.name, uc_ast.ArrayRef):
+            while isinstance(_nodeaux, uc_ast.ArrayRef):
+                _subscripttype = self.visit(_nodeaux.subscript)
+                assert _subscripttype == "int", f"ERROR: Declared index must be an int type"
+                _idx.append(_nodeaux.subscript)
+                # go to the next arrayref inside
+                _nodeaux = _nodeaux.name
+
+            _subscripttype = self.visit(node.subscript)
+            assert _subscripttype == "int", f"ERROR: Declared index must be an int type"
+            _symbol = _nodeaux.name
+            _symbol = self.current_scope.lookup(_symbol)
+            assert _symbol, f"ERROR: Reference to a undeclared array {_symbol.name}"
+            _idx.append(node.subscript)
+            assert len(_symbol.indexaux) == len(_idx), f"ERROR: Reference to array has a missing dimension"
             node.type = _symbol.auxtype
-            if isinstance(node.type, uc_ast.ArrayRef):
-                node.type = node.type.type
-            node.nameaux = _name
-            
-            return node.type
-        else:
-            # check semantics in every level
-            self._ArrayRefCheck(node)
-            _idx.append(node.indexaux)
-            node.type = self.visit(node.name)
-            node.nameaux = node.name.nameaux
-            _idx.append(node.name.indexaux)
+            node.nameaux = _symbol.name
             node.index = _idx
-            
 
-    def _ArrayRefCheck(self, node):
-        # check if the reference is semantic correct
-        _index = node.subscript
-        node.indexaux = _index
-        if isinstance(_index, uc_ast.ID):
-            self.visit(_index)
-            _aux = self.current_scope.lookup(_index.name)
-            assert _aux, f"ERROR: Index variable reference was not defined"
-            assert _aux.type.name == "int", f"ERROR: Array index reference must be of int type"
-        elif isinstance(_index, uc_ast.BinaryOp):
-            _type = self.visit(_index)
-            assert _type == "int", f"ERROR: Array index must be of int type"
+            return node.type
+        # unidim array
         else:
-            assert node.subscript.type == "int", f"ERROR: Array index reference must be of int type"
+            _subscripttype = self.visit(node.subscript)
+            assert _subscripttype == "int", f"ERROR: Declared index must be an int type"
+            _symbol = _nodeaux.name
+            _symbol = self.current_scope.lookup(_symbol)
+            assert _symbol, f"ERROR: Reference to a undeclared array {_symbol.name}"
+            _idx.append(node.subscript)
+            assert len(_symbol.indexaux) == len(_idx), f"ERROR: Reference to array has a missing dimension"
+            node.type = _symbol.auxtype
+            node.nameaux = _symbol.name
+            node.index = _idx
 
+            return node.type
 
     def visit_FuncDef(self, node):
         # visit the decl to see if its possible put the function symbol in the table
@@ -804,8 +817,10 @@ class SemanticAnalyzer(NodeVisitor):
     def visit_EmptyStatement(self, node):
         pass
 
+    def visit_Constant(self, node):
+        return node.type
+
 # list of unused nodes
-    # def visit_Constant(self, node):
     # def visit_DeclList(self, node):
     # def visit_Type(self, node):
     # def visit_Break(self, node):
