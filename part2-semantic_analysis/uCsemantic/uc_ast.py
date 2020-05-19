@@ -362,12 +362,15 @@ class UnaryOp(Node):
     attr_names = ('op', )
 
 class ArrayRef(Node):
-    __slots__ = ('name', 'subscript', 'coord', 'type')
-    def __init__(self, name, subscript, coord=None, type=None):
+    __slots__ = ('name', 'subscript', 'coord', 'type', 'nameaux', 'indexaux', 'index')
+    def __init__(self, name, subscript, coord=None, type=None, nameaux=None, indexaux=None, index=None):
         self.name = name
         self.subscript = subscript
         self.coord = coord
         self.type =type
+        self.nameaux = nameaux
+        self.indexaux = indexaux
+        self.index = index
 
     def children(self):
         nodelist = []
