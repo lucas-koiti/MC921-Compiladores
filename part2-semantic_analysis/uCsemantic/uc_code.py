@@ -122,12 +122,7 @@ class GenerateCode(NodeVisitor):
             _tmp = self.new_temp()
             inst = ('alloc_' + node.type.names[0], _tmp)
             self.code.append(inst)
-            # store optional init val
-            if node.value:
-                _gen = self.visit(node.valuetmp)
-                inst = ('store_' + node.type.names[0], _gen, _tmp)
-                self.code.append(inst)
-            
+                       
             # store the temporary used in dict
             self.temps[node.declname.name] = _tmp
             
@@ -139,6 +134,10 @@ class GenerateCode(NodeVisitor):
             elif isinstance(node.valuetmp, uc_ast.ID):
                 _idvalue = self.visit(node.valuetmp)
                 inst = ('store_'+node.valuetmp.type, _idvalue, _tmp)
+                self.code.append(inst)
+            elif isinstance(node.valuetmp, uc_ast.Constant):
+                _gen = self.visit(node.valuetmp)
+                inst = ('store_' + node.type.names[0], _gen, _tmp)
                 self.code.append(inst)
         return _tmp
 
@@ -209,9 +208,22 @@ class GenerateCode(NodeVisitor):
          
          
     def visit_Constant(self, node):
-        _gen = self.new_temp()
-        inst = ('literal_'+ node.type, node.value, _gen)
-        self.code.append(inst)
+        if node.type == "string":
+            _gen = '@.str.'+str(self.str_counter)
+            inst = ('global_string', _gen, node.value[1:-1])
+            self.str_counter += 1
+            # find where to declare in the code flow
+            _i = 0
+            while 'global' in self.code[_i][0]:
+                _i += 1
+                # insert in the right spot
+            self.code.insert(_i, inst)
+        else:
+            # literal value
+            _gen = self.new_temp()
+            inst = ('literal_'+ node.type, node.value, _gen)
+            self.code.append(inst)
+            
         return _gen
 
 
@@ -240,7 +252,8 @@ class GenerateCode(NodeVisitor):
                     self.code.append(inst)
                     _conc = self.visit(node.values)    
                     inst = ('store_' + node.typeaux+", "+ _conc, _tmp)
-                    self.code.append(inst)   
+                    self.code.append(inst)
+                    # end dark zone.   
                 else:
                     # process the string initialized
                     _str = '@.str.'+str(self.str_counter)
@@ -259,6 +272,71 @@ class GenerateCode(NodeVisitor):
                     
             self.temps[node.name] = _tmp
         return _tmp
+
+    def visit_ArrayRef(self, node):
+        if isinstance(node.name, uc_ast.ID):
+            _indextmp = self.visit(node.subscript)
+            _arrayref = self.temps.get(node.nameaux)
+            _target = self.new_temp()
+            _target1 = self.new_temp()
+            
+            # elem and load to a new temporary
+            inst = ('elem_'+node.type, _arrayref, _indextmp, _target)
+            self.code.append(inst)
+            inst = ('load_'+node.type+'_*', _target, _target1)
+            self.code.append(inst)
+
+            return _target1
+        else:
+            # only works for 2-D arrays
+            _factor = len(node.index)
+            _target = self.new_temp()
+            inst = ('literal_int', _factor, _target)
+            self.code.append(inst)
+            _1d = self.visit(node.index[1])
+            _target1 = self.new_temp()
+            inst = ('mul_int', _target, _1d, _target1)
+            self.code.append(inst)
+            _2d = self.visit(node.index[0])
+            _target = self.new_temp()
+            inst = ('add_int', _target1, _2d, _target)
+            self.code.append(inst)
+            _arrayref = self.temps.get(node.nameaux)
+            _target1 = self.new_temp()
+            inst = ('elem_'+node.type, _arrayref, _target, _target1)
+            self.code.append(inst)
+            _target = self.new_temp()
+            inst = ('load_'+node.type+'_*', _target1, _target)
+            self.code.append(inst)
+
+            return _target
+
+    def visit_Print(self, node):
+        if node.expr:
+            if isinstance(node.expr, uc_ast.ExprList):
+                for _i in node.expr.exprs:
+                    _printTmp = self.visit(_i)
+                    _type = _i.type
+                    inst = ('print_'+_type, _printTmp)
+                    self.code.append(inst) 
+            else:
+                _printTmp = self.visit(node.expr)
+                _type = node.expr.type
+                inst = ('print_'+_type, _printTmp)
+                self.code.append(inst)
+        else:
+            # empty print (creates a \n string and print it)
+            _str = '@.str.'+str(self.str_counter)
+            inst = ('global_char', _str, '\n')
+            self.str_counter += 1
+            # find where to declare in the code flow
+            _i = 0
+            while 'global' in self.code[_i][0]:
+                _i += 1
+                # insert in the right spot
+            self.code.insert(_i, inst)
+            inst = ('print_char', _str)
+            self.code.append(inst)
 
     def visit_FuncDef(self, node):
         # get into a new scope to help in any Decl
@@ -322,23 +400,42 @@ class GenerateCode(NodeVisitor):
                 self.temps['label1'] = self.new_temp()
 
     def visit_Assignment(self, node):
-        _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
-        _target = self.temps[node.lvalue.name]              # access the global dict with declared variables
-        
-        if node.op == "=":
-            inst = ('store_'+ node.lvalue.type, _gen, _target)  
-            self.code.append(inst)
+        if isinstance(node.lvalue, uc_ast.ArrayRef):
+            _target = self._assignment2array(node)
         else:
-            _tgt = self.new_temp()
-            inst = ('load_'+ node.lvalue.type, _target, _tgt)
-            self.code.append(inst)
-            _tgt1 = self.new_temp()
-            inst = (self.assignOp[node.op]+'_'+ node.lvalue.type, _gen, _tgt, _tgt1)
-            self.code.append(inst)
-            inst = ('store_'+ node.lvalue.type, _tgt1, _target)
-            self.code.append(inst)
-          
+            _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
+            _target = self.temps[node.lvalue.name]              # access the global dict with declared variables
+            
+            if node.op == "=":
+                inst = ('store_'+ node.lvalue.type, _gen, _target)  
+                self.code.append(inst)
+            else:
+                _tgt = self.new_temp()
+                inst = ('load_'+ node.lvalue.type, _target, _tgt)
+                self.code.append(inst)
+                _tgt1 = self.new_temp()
+                inst = (self.assignOp[node.op]+'_'+ node.lvalue.type, _gen, _tgt, _tgt1)
+                self.code.append(inst)
+                inst = ('store_'+ node.lvalue.type, _tgt1, _target)
+                self.code.append(inst)
+            
         return _target
+    
+    def _assignment2array(self, node):
+        _gen = self.visit(node.rvalue)
+
+        # get array temporary, the left side
+        _arraytmp = self.temps.get(node.lvalue.name.name)
+
+        # find the subscript and store as demand
+        _idx = self.visit(node.lvalue.subscript)
+        _target = self.new_temp()
+        inst = ('elem_'+node.lvalue.type, _arraytmp, _idx, _target)
+        self.code.append(inst)
+        inst = ('store_'+node.lvalue.type+'_*', _gen, _target)
+        self.code.append(inst)
+        return _target
+        
 
     def visit_UnaryOp(self, node):
         _elem = self.visit(node.expr)
@@ -511,6 +608,69 @@ class GenerateCode(NodeVisitor):
         inst = (_labelfinish[1:],)
         self.code.append(inst)
 
+    def visit_Read(self, node):
+        if isinstance(node.expr, uc_ast.ExprList):
+            for _i in node.expr:
+                if isinstance(_i, uc_ast.ID):
+                    self._read_ID(_i)
+                elif isinstance(_i, uc_ast.ArrayRef):
+                    self._read_ArrayRef(_i)
+        elif isinstance(node.expr, uc_ast.ID):
+            self._read_ID(node.expr)
+        elif isinstance(node.expr, uc_ast.ArrayRef):
+            self._read_ArrayRef(node.expr)
+
+    def _read_ID(self, node):
+        # read and store in a variable
+        _src = self.new_temp()
+        _target = self.temps.get(node.name)
+        inst = ('read_'+node.type, _src)
+        self.code.append(inst)
+        inst = ('store_'+node.type, _src, _target)
+        self.code.append(inst)
+
+    def _read_ArrayRef(self, node):
+        # read and store in an array reference
+        _indextmp = self.visit(node.subscript)
+        _arrayref = self.temps.get(node.nameaux)
+        _target = self.new_temp()
+            
+        # get the elem address
+        inst = ('elem_'+node.type, _arrayref, _indextmp, _target)
+        self.code.append(inst)
+
+        # read the value
+        _src = self.new_temp()
+        inst = ('read_'+node.type, _src)
+        self.code.append(inst)
+
+        #store in the right address
+        inst = ('store_'+node.type+'_*', _src, _target)
+        self.code.append(inst)
+
+    def visit_If(self, node):
+        # true and false labels
+        _truelabel = self.new_temp()
+        _falselabel = self.new_temp()
+        
+        # check condition
+        _cond = self.visit(node.cond)
+        inst = ('cbranch', _cond, _truelabel, _falselabel)
+        self.code.append(inst)
+        
+        # label if true
+        inst = (_truelabel[1:],)
+        self.code.append(inst)
+        # true stmt
+        self.visit(node.iftrue)
+
+        # label if false
+        inst = (_falselabel[1:],)
+        self.code.append(inst)
+        # false stmt
+        if node.iffalse:
+            self.visit(node.iffalse)
+
     def visit_Return(self, node):
         if node.expr:
             if isinstance(node.expr, uc_ast.BinaryOp):
@@ -568,13 +728,6 @@ class GenerateCode(NodeVisitor):
         print(self.globals)
 
 
-    """
 
-    def visit_PrintStatement(self, node):
-        # Visit the expression
-        self.visit(node.expr)
-
-        # Create the opcode and append to list
-        inst = ('print_' + node.expr.type.name, node.expr.gen_location)
-        self.code.append(inst)"""
+   
  
