@@ -476,7 +476,9 @@ class SemanticAnalyzer(NodeVisitor):
 
 
     def visit_ArrayRef(self, node):
+        _idx = []
         if isinstance(node.name, uc_ast.ID):
+            self.visit(node.name)
             # check semantics
             _name = node.name.name
             _symbol = self.current_scope.lookup(_name)
@@ -484,20 +486,33 @@ class SemanticAnalyzer(NodeVisitor):
             self._ArrayRefCheck(node)
             # return the array type - assign it to the node
             node.type = _symbol.auxtype
+            if isinstance(node.type, uc_ast.ArrayRef):
+                node.type = node.type.type
+            node.nameaux = _name
+            
             return node.type
         else:
             # check semantics in every level
             self._ArrayRefCheck(node)
+            _idx.append(node.indexaux)
             node.type = self.visit(node.name)
-
+            node.nameaux = node.name.nameaux
+            _idx.append(node.name.indexaux)
+            node.index = _idx
+            
 
     def _ArrayRefCheck(self, node):
         # check if the reference is semantic correct
         _index = node.subscript
+        node.indexaux = _index
         if isinstance(_index, uc_ast.ID):
+            self.visit(_index)
             _aux = self.current_scope.lookup(_index.name)
             assert _aux, f"ERROR: Index variable reference was not defined"
             assert _aux.type.name == "int", f"ERROR: Array index reference must be of int type"
+        elif isinstance(_index, uc_ast.BinaryOp):
+            _type = self.visit(_index)
+            assert _type == "int", f"ERROR: Array index must be of int type"
         else:
             assert node.subscript.type == "int", f"ERROR: Array index reference must be of int type"
 
