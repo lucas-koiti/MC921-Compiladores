@@ -11,7 +11,7 @@
 # permitted but the source code must retain the above copyright notice.
 # ---------------------------------------------------------------------------------
 import sys
-import traceback
+
 
 class Interpreter(object):
     """
@@ -38,8 +38,8 @@ class Interpreter(object):
         1. Instantiate an object of the Interpreter class
         2. Call the run method of this object passing the produced
            code as a parameter
-
     """
+
     def __init__(self):
         global inputline, M
         inputline = []
@@ -62,28 +62,21 @@ class Interpreter(object):
         self.pc = 0             # Program Counter
         self.start = 0          # PC of the main function
         self.code = None
-    # excessoes
-    exception_op = ['fptosi', 'sitofp', 'label', 'jump', 'cbranch', 'define', 'call']
 
-    def _extract_operation(self, source: str):
-        """Paramenters
-        ------------
-            source: tuple
-                tupla de codigo SSA
-        """
+    def _extract_operation(self, source):
         _modifier = {}
-        operation = source.split('_')
-        if operation[0] not in self.exception_op:
-            _op_code = operation[0] + '_' + operation[1]
-            for i, _val in enumerate(operation[2:]):
+        _aux = source.split('_')
+        if _aux[0] not in {'fptosi', 'sitofp', 'label', 'jump', 'cbranch',
+                           'define', 'call'}:
+            _opcode = _aux[0] + '_' + _aux[1]
+            for i, _val in enumerate(_aux[2:]):
                 if _val.isdigit():
                     _modifier['dim' + str(i)] = _val
                 elif _val == '*':
                     _modifier['ptr' + str(i)] = _val
         else:
-            _op_code = operation[0]
-        return (_op_code, _modifier)
-
+            _opcode = _aux[0]
+        return (_opcode, _modifier)
 
     def _copy_data(self, address, size, value):
         if isinstance(value, str):
@@ -94,8 +87,7 @@ class Interpreter(object):
             _value = value
         M[address:address+size] = _value
 
-
-    def run(self, ircode: [(str)]):
+    def run(self, ircode):
         """
         Run intermediate code in the interpreter.  ircode is a list
         of instruction tuples.  Each instruction (opcode, *args) is
@@ -107,7 +99,6 @@ class Interpreter(object):
         self.code = ircode
         self.pc = 0
         self.offset = 0
-
         while True:
             try:
                 op = ircode[self.pc]
@@ -139,6 +130,7 @@ class Interpreter(object):
                         if op[1] == '@main':
                             self.start = self.pc
             self.pc += 1
+
         # Now, running the program starting from the main function
         self.pc = self.start
         while True:
@@ -220,6 +212,7 @@ class Interpreter(object):
         # Finally, cleanup the parameters list used to transfer these vars
         self.vars = {}
         idx = -1
+        
         for idx, val in enumerate(self.params):
             # Note that arrays (size >=1) are passed by reference only.
             self.vars['%' + str(idx)] = self.offset
@@ -389,6 +382,7 @@ class Interpreter(object):
     run_load_char_ = run_load_int_
 
     def run_param_int(self, source):
+        
         self.params.append(self.vars[source])
 
     run_param_float = run_param_int
@@ -572,6 +566,3 @@ class Interpreter(object):
     def run_fptosi(self, source, target):
         self._alloc_reg(target)
         M[self.vars[target]] = int(self._get_value(source))
-
-    def run_print_void(self):
-        pass

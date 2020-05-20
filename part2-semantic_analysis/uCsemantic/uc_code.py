@@ -143,13 +143,18 @@ class GenerateCode(NodeVisitor):
 
     def visit_FuncCall(self, node):   
         if isinstance(node.args, uc_ast.ExprList):
+            _paramlist = []
             for _k in node.args.exprs:
                 _target = self.new_temp()
-                _src = self.temps.get(_k.name)
+                if isinstance(_k, uc_ast.ID):
+                    _src = self.temps.get(_k.name)
+                elif isinstance(_k, uc_ast.Constant):
+                    _src = self.visit(_k)
                 inst = ('load_'+_k.type, _src, _target)
                 self.code.append(inst)
                 inst = ('param_'+_k.type, _target)
-                self.code.append(inst)
+                _paramlist.append(inst)
+            self.code += _paramlist
         elif isinstance(node.args, uc_ast.ID):
             _target = self.new_temp()
             _src = self.temps.get(node.args.name)
@@ -366,6 +371,8 @@ class GenerateCode(NodeVisitor):
             self.temps['label1'] = self.new_temp()
         
         else:
+            _aloc = []
+            _store = []
             if node.args:
                 # create pass params temporaries
                 for _i in range(len(node.args.params)):
@@ -374,25 +381,20 @@ class GenerateCode(NodeVisitor):
                 # create a temporary to store return value
                 self.temps['return'] = self.new_temp()
                 
-                # alloc temporaries to receive the params
+                # alloc and store temporaries to receive the params
                 for _k in range(len(node.args.params)):
                     _tmp = self.new_temp()
                     _type = node.args.params[_k].type.type.names[0]
                     inst = ('alloc_'+_type, _tmp)
-                    self.code.append(inst)
+                    _aloc.append(inst)
+                    _src = self.temps[node.args.params[_k].name.name]
+                    inst = ('store_'+_type, _src, _tmp)
+                    _store.append(inst)
                     self.temps[node.args.params[_k].name.name] = _tmp
-
-                # store the params in the allocate temporaries
-                for _j in range(len(node.args.params)):
-                    _type = node.args.params[_j].type.type.names[0]
-                    _src = self.temps[node.args.params[_j].name.name]
-                    _target = self.temps[node.args.params[_j].name.name]
-                    inst = ('store_'+_type, _src, _target)
-                    self.code.append(inst)
-
-                    # look if it is necessary att the value in temps
-                    #self.temps[self.temps[node.args.params[_j].name.name]] = _target
-
+                
+                self.code += _aloc
+                self.code += _store
+    
                 # create a jump label to return
                 self.temps['label1'] = self.new_temp()
             else:
@@ -684,10 +686,13 @@ class GenerateCode(NodeVisitor):
                 self.code.append(inst)
             
             elif isinstance(node.expr, uc_ast.ID):
-                _src = self.temps.get(node.expr.name)
+                _src = self.visit(node.expr)
+                #_src = self.temps.get(node.expr.name)
                 _target = self.temps.get('return')
                 inst = ('store_'+node.expr.type, _src, _target)
                 self.code.append(inst)
+            
+            
                 
         inst = ('jump', self.temps['label1'])
         self.code.append(inst)
