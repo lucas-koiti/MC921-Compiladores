@@ -1,3 +1,8 @@
+#   Code generator
+
+#   Authors: Lucas Koiti Geminiani Tamanaha     182579
+#            Rudolfo Goldmann Neto  	        139108
+
 from uc_sema import NodeVisitor, ScopedSymbolTable
 import uc_ast
 
@@ -148,7 +153,11 @@ class GenerateCode(NodeVisitor):
                 _target = self.new_temp()
                 if isinstance(_k, uc_ast.ID):
                     _src = self.temps.get(_k.name)
+                    if _src is None:
+                        _src = '@'+_k.name                  # if its not in the current scope, its in global
                 elif isinstance(_k, uc_ast.Constant):
+                    _src = self.visit(_k)
+                elif isinstance(_k, uc_ast.BinaryOp):
                     _src = self.visit(_k)
                 inst = ('load_'+_k.type, _src, _target)
                 self.code.append(inst)
@@ -158,6 +167,8 @@ class GenerateCode(NodeVisitor):
         elif isinstance(node.args, uc_ast.ID):
             _target = self.new_temp()
             _src = self.temps.get(node.args.name)
+            if _src is None:
+                _src = '@'+node.args.name
             inst = ('load_'+node.args.type, _src, _target)
             self.code.append(inst)
             inst = ('param_'+node.args.type, _target)
@@ -169,7 +180,15 @@ class GenerateCode(NodeVisitor):
             self.code.append(inst)
             inst = ('param_'+node.args.type, _target)
             self.code.append(inst)
-        
+
+        elif isinstance(node.args, uc_ast.BinaryOp):
+            _target = self.new_temp()
+            _src = self.visit(node.args)
+            inst = ('load_'+node.args.type, _src, _target)
+            self.code.append(inst)
+            inst = ('param_'+node.args.type, _target)
+            self.code.append(inst) 
+
         _freturn = self.new_temp()
         inst = ('call', '@'+node.name.name, _freturn)
         self.code.append(inst)
@@ -253,13 +272,11 @@ class GenerateCode(NodeVisitor):
             
             if node.values:
                 if isinstance(node.values, uc_ast.BinaryOp):
-                    # DARK ZONE, WHEN INITIALIZE WITH STRING CONCATENATE
                     inst = ('alloc_'+node.typeaux+'_', _tmp)
                     self.code.append(inst)
                     _conc = self.visit(node.values)    
                     inst = ('store_' + node.typeaux+", "+ _conc, _tmp)
-                    self.code.append(inst)
-                    # end dark zone.   
+                    self.code.append(inst)  
                 else:
                     # process the string initialized
                     _str = '@.str.'+str(self.str_counter)
@@ -283,6 +300,8 @@ class GenerateCode(NodeVisitor):
         if isinstance(node.name, uc_ast.ID):
             _indextmp = self.visit(node.subscript)
             _arrayref = self.temps.get(node.nameaux)
+            if _arrayref is None:
+                _arrayref = '@'+(node.nameaux)
             _target = self.new_temp()
             _target1 = self.new_temp()
             
@@ -294,6 +313,9 @@ class GenerateCode(NodeVisitor):
 
             return _target1
         else:
+            _arrayref = self.temps.get(node.nameaux)
+            if _arrayref is None:
+                _arrayref = '@'+(node.nameaux)
             # only works for 2-D arrays
             _factor = len(node.index)
             _target = self.new_temp()
@@ -307,7 +329,6 @@ class GenerateCode(NodeVisitor):
             _target = self.new_temp()
             inst = ('add_int', _target1, _2d, _target)
             self.code.append(inst)
-            _arrayref = self.temps.get(node.nameaux)
             _target1 = self.new_temp()
             inst = ('elem_'+node.type, _arrayref, _target, _target1)
             self.code.append(inst)
@@ -406,9 +427,10 @@ class GenerateCode(NodeVisitor):
         if isinstance(node.lvalue, uc_ast.ArrayRef):
             _target = self._assignment2array(node)
         else:
-            _gen = self.visit(node.rvalue)                      # gets the temporary used (eg. 'a': %2)
-            _target = self.temps[node.lvalue.name]              # access the global dict with declared variables
-            
+            _gen = self.visit(node.rvalue)                          # gets the temporary used (eg. 'a': %2)
+            _target = self.temps.get(node.lvalue.name)              # access the global dict with declared variables
+            if _target is None:
+                _target = '@'+(node.lvalue.name)
             if node.op == "=":
                 inst = ('store_'+ node.lvalue.type, _gen, _target)  
                 self.code.append(inst)
@@ -428,7 +450,10 @@ class GenerateCode(NodeVisitor):
         _gen = self.visit(node.rvalue)
 
         # get array temporary, the left side
-        _arraytmp = self.temps.get(node.lvalue.name.name)
+        if isinstance(node.lvalue.name, uc_ast.ID):
+            _arraytmp = self.temps.get(node.lvalue.name.name)
+        else:
+            _arraytmp = self.visit(node.lvalue)
 
         # find the subscript and store as demand
         _idx = self.visit(node.lvalue.subscript)
@@ -451,9 +476,9 @@ class GenerateCode(NodeVisitor):
             inst = ('add_'+node.expr.type, _elem, _one, _target)
             self.code.append(inst)
             if node.op == "++":
-                _aux = _target          # x = x++ -> z = x
+                _aux = _target          #ex: x = x++ -> z = x
             else:
-                _aux = _elem            # x = x++ -> z = x
+                _aux = _elem            #ex: x = x++ -> z = x
         elif node.op == "--" or node.op == "p--":
             inst = ('literal_'+node.expr.type, 1, _one)
             self.code.append(inst)
@@ -692,8 +717,6 @@ class GenerateCode(NodeVisitor):
                 inst = ('store_'+node.expr.type, _src, _target)
                 self.code.append(inst)
             
-            
-                
         inst = ('jump', self.temps['label1'])
         self.code.append(inst)
         inst = (self.temps['label1'][1:],)
@@ -721,14 +744,11 @@ class GenerateCode(NodeVisitor):
                 inst = ('load_'+node.expr.type, self.temps.get('return'), _target)
                 self.code.append(inst)
                 inst = ('return_'+node.expr.type, _target)
-                self.code.append(inst)
-                
+                self.code.append(inst)              
         else:
             inst = ('return_void',)
             self.code.append(inst)
 
-        print(self.temps)
-        print(self.globals)
 
 
 

@@ -1,4 +1,8 @@
 # uc Semantic Analysis #
+
+#   Authors: Lucas Koiti Geminiani Tamanaha     182579
+#            Rudolfo Goldmann Neto  	        139108
+
 import uc_ast
 from uc_parser import UCParser
 
@@ -259,8 +263,7 @@ class SemanticAnalyzer(NodeVisitor):
     def __init__(self):
         self.current_scope = None
 
-    def visit_Program(self,node): #TODO test if this works
-        #print('ENTER scope: global')
+    def visit_Program(self,node): 
         # define global scope
         global_scope = ScopedSymbolTable(
             scope_name='global',
@@ -273,11 +276,8 @@ class SemanticAnalyzer(NodeVisitor):
         # Visit all of the global declarations
         for _decl in node.gdecls:
             self.visit(_decl)
-
-        #print(global_scope)
         
         self.current_scope = self.current_scope.enclosing_scope
-        #print('LEAVE scope: global')
         #print("Semantic Analysis finished Successfully - Have a Nice Day!")
     
     def visit_GlobalDecl(self, node):
@@ -293,10 +293,8 @@ class SemanticAnalyzer(NodeVisitor):
             if isinstance(node.exprs[_i], uc_ast.InitList):
                 node.exprs[_i].type = node.type
                 n, k = self.visit(node.exprs[_i])
-                #node.dimaux.append(node.exprs[_i].dimaux)
                 _initlistaux.append(n)
                 _initvalues.append(k)
-                #_initlistaux.append(self.visit(node.exprs[_i]))
 
             else:
                 if isinstance(node.exprs[_i], uc_ast.ID):
@@ -311,15 +309,10 @@ class SemanticAnalyzer(NodeVisitor):
                     _initvalues.append(node.exprs[_i].value)
         
         
-        # assign the list of inits to the node, helps in IRcodegen
-        #node.values = _initvalues
-        #print(node.values)
-        
         return _initlistaux, _initvalues
 
     def visit_Decl(self, node):
         name = node.name.name
-        #self.visit(node.name) #TODO wait if some test breaks here
         # check if the var was already declared in the current_scope (don't look to the global)
         _temp = self.current_scope.lookup(name, True) 
         assert not _temp, f"ERROR: {name} declared multiple times"
@@ -422,7 +415,6 @@ class SemanticAnalyzer(NodeVisitor):
         # to help IRgencode
         if isinstance(node.type, uc_ast.ArrayDecl):
             if node.type.dim != None:
-                #node.type.auxdim = [node.type.dim.value]
                 _dimaux = node.type
                 _auxlistdim = []
                 # here, get every index size value and the array type
@@ -512,6 +504,7 @@ class SemanticAnalyzer(NodeVisitor):
             assert len(_symbol.indexaux) == len(_idx), f"ERROR: Reference to array has a missing dimension"
             node.type = _symbol.auxtype
             node.nameaux = _symbol.name
+            
             node.index = _idx
 
             return node.type
@@ -522,6 +515,8 @@ class SemanticAnalyzer(NodeVisitor):
             _symbol = _nodeaux.name
             _symbol = self.current_scope.lookup(_symbol)
             assert _symbol, f"ERROR: Reference to a undeclared array {_symbol.name}"
+            if isinstance(node.subscript, uc_ast.Constant):
+                assert node.subscript.value <= _symbol.indexaux[0], f"ERROR: ArrayRef has an subscript greater than the array dimension"
             _idx.append(node.subscript)
             assert len(_symbol.indexaux) == len(_idx), f"ERROR: Reference to array has a missing dimension"
             node.type = _symbol.auxtype
@@ -535,7 +530,6 @@ class SemanticAnalyzer(NodeVisitor):
         self.visit(node.decl)
         
         # change to the function scope
-        #print('ENTER Scope: %s' %node.decl.name.name)
         procedure_scope = ScopedSymbolTable(
             scope_name = node.decl.name.name,
             scope_level = self.current_scope.scope_level + 1,
@@ -558,7 +552,6 @@ class SemanticAnalyzer(NodeVisitor):
         self.visit(node.body)
         # leave the current function and get back to global scope
         self.current_scope = self.current_scope.enclosing_scope
-        #print('LEAVE scope %s' %node.decl.name.name)
 
 
     def visit_FuncDecl(self, node):
@@ -584,11 +577,10 @@ class SemanticAnalyzer(NodeVisitor):
         # check if it is semantically ok
         _funcname = node.name.name
         _auxfunc = self.current_scope.lookup(_funcname)
-        assert _auxfunc != None, f"ERROR: Function calls has an undeclared function"
+        assert _auxfunc != None, f"ERROR: Functioncall has an undeclared function"
         _params = _auxfunc.params
         # check if the parameters number is ok
         # check if the parameters type matches
-        
         if isinstance(node.args, uc_ast.ExprList):
             # case with more than one parameter
             _exprlist = node.args.exprs
@@ -606,7 +598,7 @@ class SemanticAnalyzer(NodeVisitor):
         else:
             # case with a single parameter
             if node.args:
-                assert node.args and (1 == len(_params)), f"ERROR: Function call has missing/extra parameters"
+                assert node.args and (1 == len(_params)), f"ERROR: Functioncall has missing/extra parameters"
                 if isinstance(node.args, uc_ast.ID):
                         self.visit(node.args)
                         _type = self.current_scope.lookup(node.args.name)
@@ -630,13 +622,11 @@ class SemanticAnalyzer(NodeVisitor):
             self.visit(node.cond) 
         if node.next != None:
             self.visit(node.next)
-        #assert node.stmt.block_items, f"ERROR: (For) must have an statement"
         self.visit(node.stmt)
     
 
     def visit_While(self, node):
         # just visi the condition and statement
-        #assert node.cond, f"ERROR: While conditional must have an expression, not empty"
         assert not isinstance(node.cond, uc_ast.ID), f"ERROR: While conditional must have an expression"
         assert not isinstance(node.cond, uc_ast.Constant), f"ERROR: While conditional must have an expression"
         
@@ -677,8 +667,8 @@ class SemanticAnalyzer(NodeVisitor):
         if isinstance(node.expr, uc_ast.ID):
             self.visit(node.expr)
             _name = node.expr.name
-        else: # not sure if a unaryop is always over an ID
-            print("dude, look for error here")
+        else: 
+            pass
         # check if the var was declared
         _vardecl = self.current_scope.lookup(_name)
         assert _vardecl != None, f"ERROR: Unary operation variable was not declared"
@@ -698,16 +688,12 @@ class SemanticAnalyzer(NodeVisitor):
             _type = node.type
         elif isinstance(node, uc_ast.ID):
             _type = self.visit(node)
-            #_aux = self.current_scope.lookup(node.name)
-            #_type = _aux.type.name
         elif isinstance(node, uc_ast.ArrayRef):
             self.visit(node)
             _aux = self.current_scope.lookup(node.name.name)
             _type = _aux.auxtype
         elif isinstance(node, uc_ast.FuncCall):
-            _type = self.visit(node)
-            #_aux = self.current_scope.lookup(node.name.name)
-            #_type = _aux.type.name
+            _type = self.visit(node)    
         elif isinstance(node, uc_ast.UnaryOp):
             _type = self.visit(node)
         elif isinstance(node, uc_ast.BinaryOp):
@@ -825,7 +811,7 @@ class SemanticAnalyzer(NodeVisitor):
     # def visit_Type(self, node):
     # def visit_Break(self, node):
 
-def main():
+"""def main():
     import sys
     text = open(sys.argv[1], 'r').read()
 
@@ -840,4 +826,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main()"""

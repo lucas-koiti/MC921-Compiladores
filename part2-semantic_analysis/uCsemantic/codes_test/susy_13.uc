@@ -1,10 +1,9 @@
 int main(){
-    int v[] = {1, 2, 3, 4, 5};
-    int i = 2;
-    char c[] = "xpto";
-    char w[4];
-    w[2] = c[1];
-    v[i] = 9;
-    assert w[i] == c[1] && v[i] == 9;
-    return 0;
+   int a[5];
+    int b = 0;
+
+    b = a[6];
+    
+
+   return 0;
 }
