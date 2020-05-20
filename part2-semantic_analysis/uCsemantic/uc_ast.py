@@ -151,11 +151,12 @@ class ParamList(Node):
     attr_names = ()
 
 class Cast(Node):
-    __slots__ = ('to_type', 'expr', 'coord')
-    def __init__(self, to_type, expr, coord=None):
+    __slots__ = ('to_type', 'expr', 'coord', 'type')
+    def __init__(self, to_type, expr, coord=None, type=None):
         self.to_type = to_type
         self.expr = expr
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
@@ -342,11 +343,12 @@ class EmptyStatement(Node):
     attr_names = ()
 
 class UnaryOp(Node):
-    __slots__ = ('op', 'expr', 'coord')
-    def __init__(self, op, expr, coord=None):
+    __slots__ = ('op', 'expr', 'coord', 'type')
+    def __init__(self, op, expr, coord=None, type=None):
         self.op = op
         self.expr = expr
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
@@ -360,11 +362,15 @@ class UnaryOp(Node):
     attr_names = ('op', )
 
 class ArrayRef(Node):
-    __slots__ = ('name', 'subscript', 'coord')
-    def __init__(self, name, subscript, coord=None):
+    __slots__ = ('name', 'subscript', 'coord', 'type', 'nameaux', 'indexaux', 'index')
+    def __init__(self, name, subscript, coord=None, type=None, nameaux=None, indexaux=None, index=None):
         self.name = name
         self.subscript = subscript
         self.coord = coord
+        self.type =type
+        self.nameaux = nameaux
+        self.indexaux = indexaux
+        self.index = index
 
     def children(self):
         nodelist = []
@@ -503,10 +509,12 @@ class FuncDef(Node):
     attr_names = ()
 
 class ID(Node):
-    __slots__ = ('name', 'coord')
-    def __init__(self, name, coord=None):
+    __slots__ = ('name', 'coord', 'type', 'value')
+    def __init__(self, name, coord=None, type=None, value=None):
         self.name = name
         self.coord = coord
+        self.type = type
+        self.value = value
 
     def children(self):
         nodelist = []
@@ -519,10 +527,13 @@ class ID(Node):
     attr_names = ('name', )
 
 class InitList(Node):
-    __slots__ = ('exprs', 'coord')
-    def __init__(self, exprs, coord=None):
+    __slots__ = ('exprs', 'coord', 'type', 'values', 'dimaux')
+    def __init__(self, exprs, coord=None, type=None, values=None, dimaux=[None]):
         self.exprs = exprs
         self.coord = coord
+        self.type = type
+        self.values = values
+        self.dimaux = dimaux
 
     def children(self):
         nodelist = []
@@ -533,11 +544,12 @@ class InitList(Node):
     attr_names = ()
 
 class FuncCall(Node):
-    __slots__ = ('name', 'args', 'coord')
-    def __init__(self, name, args, coord=None):
+    __slots__ = ('name', 'args', 'coord', 'type')
+    def __init__(self, name, args, coord=None, type=None):
         self.name = name
         self.args = args
         self.coord = coord
+        self.type = type
 
     def children(self):
         nodelist = []
@@ -576,11 +588,13 @@ class Decl(Node):
     attr_names = ('name',)
 
 class VarDecl(Node):
-    __slots__ = ('declname', 'type', 'coord')
-    def __init__(self, declname, type, coord=None):
+    __slots__ = ('declname', 'type', 'coord', 'value', 'valuetmp')
+    def __init__(self, declname, type, coord=None, value=None, valuetmp=None):
         self.declname = declname
         self.type = type
         self.coord = coord
+        self.value = value
+        self.valuetmp = valuetmp
 
     def children(self):
         nodelist = []
@@ -590,11 +604,16 @@ class VarDecl(Node):
     attr_names = ()
 
 class ArrayDecl(Node):
-    __slots__ = ('type', 'dim', 'coord')
-    def __init__(self, type, dim, coord=None):
+    __slots__ = ('type', 'dim', 'coord', 'typeaux', 'auxdim', 'values', 'name', 'aux')
+    def __init__(self, type, dim, coord=None, value=None, auxdim=None, values=None, typeaux=None, name=None, aux=None):
         self.type = type
         self.dim = dim
         self.coord = coord
+        self.typeaux = typeaux
+        self.auxdim = auxdim
+        self.values = values
+        self.name = name
+        self.aux = aux
 
     def children(self):
         nodelist = []
