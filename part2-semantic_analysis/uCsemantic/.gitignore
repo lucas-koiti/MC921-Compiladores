@@ -1,7 +1,0 @@
-__pycache__/
-*.out
-*.ast
-*.ir
-parsetab.py
-.pytest_cache
-.gitignore
