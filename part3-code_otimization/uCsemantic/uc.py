@@ -121,6 +121,7 @@ class Compiler:
         self.total_errors = 0
         self.total_warnings = 0
 
+
     def _parse(self, susy, ast_file, debug):
         """ Parses the source code. If ast_file != None,
             or running at susy machine,
@@ -128,7 +129,8 @@ class Compiler:
         """
         self.parser = UCParser()
         self.ast = self.parser.parse(self.code, '', debug)
-        
+
+
     def _sema(self, susy, ast_file):
         """ Decorate AST with semantic actions. If ast_file != None,
             or running at susy machine,
@@ -141,10 +143,13 @@ class Compiler:
         except AssertionError as e:
             error(None, e)
 
+
     def _gencode(self, susy, ir_file):
         """ Generate uCIR Code for the decorated AST. """
+        print("vai tomar no cu")
         self.gen = GenerateCode()
         self.gen.visit(self.ast)
+        print(f"code ###\n{self.gen.code}\n###")
         self.gencode = self.gen.code
         _str = ''
         if not susy and ir_file is not None:
@@ -152,6 +157,7 @@ class Compiler:
                 _str += f"{_code}\n"
             ir_file.write(_str)
             
+
     def _do_compile(self, susy, ast_file, ir_file, debug):
         """ Compiles the code to the given file object. """
         self._parse(susy, ast_file, debug)
@@ -159,6 +165,7 @@ class Compiler:
             self._sema(susy, ast_file)
         if not errors_reported():
             self._gencode(susy, ir_file)
+
 
     def compile(self, code, susy, ast_file, ir_file, run_ir, debug):
         """ Compiles the given code string """
