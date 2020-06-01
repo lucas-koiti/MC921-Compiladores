@@ -93,6 +93,7 @@ class CFG(object):
         self.fname = fname
         self.g = gv.Digraph('g', filename=fname + '.gv', node_attr={'shape': 'record'})
 
+
     def visit_BasicBlock(self, block):
         # Get the label as node name
         _name = block.label
@@ -110,6 +111,7 @@ class CFG(object):
             self.g.node(self.fname, label=None, _attributes={'shape': 'ellipse'})
             self.g.edge(self.fname, block.next_block.label)
 
+
     def visit_ConditionBlock(self, block):
         # Get the label as node name
         _name = block.label
@@ -121,6 +123,7 @@ class CFG(object):
         self.g.node(_name, label=_label)
         self.g.edge(_name + ":f0", block.taken.label)
         self.g.edge(_name + ":f1", block.fall_through.label)
+
 
     def view(self, block):
         while isinstance(block, Block):
