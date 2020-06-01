@@ -144,9 +144,9 @@ class Compiler:
             error(None, e)
 
 
-    def _gencode(self, susy, ir_file):
+    def _gencode(self, susy, ir_file, cfg):
         """ Generate uCIR Code for the decorated AST. """
-        self.gen = GenerateCode()
+        self.gen = GenerateCode(cfg)
         self.gen.visit(self.ast)
         # print(f"code ###\n{self.gen.code}\n###")
         # AQUI O CODIGO É GERADO
@@ -158,20 +158,20 @@ class Compiler:
             ir_file.write(_str)
             
 
-    def _do_compile(self, susy, ast_file, ir_file, debug):
+    def _do_compile(self, susy, ast_file, ir_file, cfg, debug):
         """ Compiles the code to the given file object. """
         self._parse(susy, ast_file, debug)
         if not errors_reported():
             self._sema(susy, ast_file)
         if not errors_reported():
-            self._gencode(susy, ir_file)
+            self._gencode(susy, ir_file, cfg)
 
 
-    def compile(self, code, susy, ast_file, ir_file, run_ir, debug):
+    def compile(self, code, susy, ast_file, ir_file, cfg, run_ir, debug):
         """ Compiles the given code string """
         self.code = code
         with subscribe_errors(lambda msg: sys.stderr.write(msg+"\n")):
-            self._do_compile(susy, ast_file, ir_file, debug)
+            self._do_compile(susy, ast_file, ir_file, cfg, debug)
             if errors_reported():
                 sys.stderr.write("{} error(s) encountered.".format(errors_reported()))
             elif run_ir:
