@@ -5,16 +5,13 @@
 
 from uc_sema import NodeVisitor, ScopedSymbolTable
 import uc_ast
-from uc_block import *
 
 class GenerateCode(NodeVisitor):
     '''
     Node visitor class that creates 3-address encoded instruction sequences.
     '''
-    def __init__(self, viewcfg):
+    def __init__(self):
         super(GenerateCode, self).__init__()
-        self.viewcfg = viewcfg
-        self.current_block = None
 
         # version dictionary for temporaries
         self.fname = 'main'  # We use the function name as a key
@@ -86,11 +83,6 @@ class GenerateCode(NodeVisitor):
 
         self.current_scope = self.current_scope.enclosing_scope
 
-        if self.viewcfg:
-            for _decl in node.gdecls:
-                if isinstance(_decl, uc_ast.FuncDef):
-                    dot = CFG(_decl.decl.name.name)
-                    dot.view(_decl.cfg)
 
     def visit_GlobalDecl(self, node):
         # Visit all decls
