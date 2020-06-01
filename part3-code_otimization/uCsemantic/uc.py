@@ -146,8 +146,10 @@ class Compiler:
 
     def _gencode(self, susy, ir_file):
         """ Generate uCIR Code for the decorated AST. """
+        print("vai tomar no cu")
         self.gen = GenerateCode()
         self.gen.visit(self.ast)
+        print(f"code ###\n{self.gen.code}\n###")
         self.gencode = self.gen.code
         _str = ''
         if not susy and ir_file is not None:
@@ -236,6 +238,7 @@ def run_compiler():
         source = open(source_filename, 'r')
         code = source.read()
         source.close()
+
         retval = Compiler().compile(code, susy, ast_file, ir_file, run_ir, debug)
         for f in open_files:
             f.close()
