@@ -206,6 +206,8 @@ def run_compiler():
                 susy = True
             elif param == '-no-run':
                 run_ir = False
+            elif param == '-cfg':
+                cfg = True
             elif param == '-debug':
                 debug = True
             else:
@@ -239,7 +241,7 @@ def run_compiler():
         code = source.read()
         source.close()
 
-        retval = Compiler().compile(code, susy, ast_file, ir_file, run_ir, debug)
+        retval = Compiler().compile(code, susy, ast_file, ir_file, run_ir, cfg, debug)
         for f in open_files:
             f.close()
         if retval != 0:
