@@ -146,10 +146,10 @@ class Compiler:
 
     def _gencode(self, susy, ir_file):
         """ Generate uCIR Code for the decorated AST. """
-        print("vai tomar no cu")
         self.gen = GenerateCode()
         self.gen.visit(self.ast)
-        print(f"code ###\n{self.gen.code}\n###")
+        # print(f"code ###\n{self.gen.code}\n###")
+        # AQUI O CODIGO É GERADO
         self.gencode = self.gen.code
         _str = ''
         if not susy and ir_file is not None:
