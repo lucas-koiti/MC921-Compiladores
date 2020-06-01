@@ -120,17 +120,6 @@ class ConditionBlock(Block):
         self.taken = None
         self.fall_through = None
 
-class AssertBlock(Block):
-    """ code here """
-    pass
-
-class ForBlock(Block):
-    """ code here """
-    pass
-
-class WhileBlock(Block):
-    """ code here """
-    pass
  
 class BlockVisitor(object):
     '''
