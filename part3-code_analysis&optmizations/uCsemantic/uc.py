@@ -14,7 +14,7 @@ from uc_parser import UCParser
 from uc_sema import SemanticAnalyzer
 from uc_code import GenerateCode
 from uc_interpreter import Interpreter
-import uc_block as blocks
+from uc_block import BlockGenerator
 """
 One of the most important (and difficult) parts of writing a compiler
 is reliable reporting of error messages back to the user.  This file
@@ -246,8 +246,11 @@ def run_compiler():
         source.close()
         # retorna o valor padrao e a lista de codigos
         retval, code_3 = Compiler().compile(code, susy, ast_file, ir_file, run_ir, cfg, debug)
+        
         # passa os codigos de 3 endereços para obter os blocos
-        blocks.get_blocks(code_3)
+        if code_3:
+            blocks = BlockGenerator(code_3)
+            blocks.get_blocks()
         for f in open_files:
             f.close()
         if retval != 0:

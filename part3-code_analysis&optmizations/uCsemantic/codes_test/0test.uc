@@ -1,8 +1,13 @@
-void main(){
+int a = 3;
+int b = 4;
 
-int a = 2;
+int foo(){
+    while (a == 2){
+        a += 2;
+    }
+    return 2;
+}
 
-assert a == 3*a;
-
-return;
+int main(){
+    return 1;
 }

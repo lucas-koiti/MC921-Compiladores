@@ -1,7 +1,9 @@
-import uc_ast
-from graphviz import Digraph
-from uc_sema import NodeVisitor, ScopedSymbolTable
-class Block():
+# nenhum import por enquanto, dado que pegamos o .ir pela uc.py
+
+    #################################
+    #      CFG Block Structure      #   
+    #################################
+class Block(object):
 
     def __init__(self, label):
         # Label that identifies the block
@@ -85,122 +87,134 @@ def format_instruction(t):
     else:
         return f"{op}"
 
-# TODO Quebra nos comandos: cbranch, jump
-# TODO como identificar for e suas partes?
-def get_blocks(code_3: list):
-    """ Função que gera a separação por blocos através das linhas do codigo de 3 endereços
-    Paramentros:
-        code_3: list
-            lista contendo as tuplas de codigo de 3 endereços
-    """
-    block = BasicBlock('entry')
-    first_block = block
-    for code in code_3:
-        if code[0] == 'jump':
-            # adiciona instrucao atual
-            block.append(code)
-            print(f"adicinou {code}")
-            # cria novo bloco
-            new_block = BasicBlock(code[1])
-            # salva 'ponteiro'
-            block.next_block = new_block
-            # salva lista de nós predecessores
-            for pred_block in block.predecessors:
-                new_block.predecessors.append(pred_block)
-            new_block.predecessors.append(block)
-            # muda o bloco sendo iterado
-            block = new_block
-        if code[0] == 'cbranch':
-            # adiciona instrucao atual
-            block.append(code)
-            # cria novo bloco
-            new_block = BasicBlock(code[2])
-            # salva 'ponteiro'
-            block.next_block = new_block
-            # salva lista de nós predecessores
-            for pred_block in block.predecessors:
-                new_block.predecessors.append(pred_block)
-            new_block.predecessors.append(block)
-            # muda o bloco sendo iterado
-            block = new_block
-        else:
-            block.append(code)
-            print(f"Adicionou {code} no bloco {block.label}")
-    print(f"primeiro bloco {first_block.label}")
+    #################################
+    #      CFG Block Generator      #   
+    #################################
+class BlockGenerator(object):
 
-    # itera sobre todos os blocos imprimindo-os
-    block_pointer = first_block
-    while block_pointer.next_block:
-        print(f"Bloco {block_pointer.label}")
-        # imprime todas instrucoes do bloco
-        for inst in block_pointer.instructions:
-            print(f"\t{inst}")
-        block_pointer = block_pointer.next_block
-        # print(format_instruction(code))
+    def __init__(self, code_3):
+        # codigo em 3 enderecos 
+        self.code_3 = code_3
+        # ponteiros para os CFG's de cada funcao/global contida no codigo
+        self.progCFG = []
 
 
-class CFG(object):
-    """ 
-    Classe que gera uma imagem do CFG
-    """
-    def __init__(self, fname):
-        self.fname = fname
-        self.g = Digraph('g', filename=fname + '.gv', node_attr={'shape': 'record'})
+    def get_globals(self):
+        """ 
+            .Pega todas as declaracoes globais e guarda em um bloco, enumerando as linhas a partir de 0
+            .Retira essas declaracoes da lista de instrucoes 
+            .Armazena em uma variavel da classe que contem todos os ponteiros para os blocos iniciais de uma CFG
+        """
+        i = 0
+        globalblock = BasicBlock('Globals')
+
+        while self.code_3[0][0] != 'define':
+            instr = [i, self.code_3[0]]
+            globalblock.append(instr)
+            i += 1
+            del self.code_3[0]
+
+        self.progCFG.append(globalblock)
 
 
-    def visit_BasicBlock(self, block):
-        # Get the label as node name
-        _name = block.label
-        if _name:
-            # get the formatted instructions as node label
-            _label = "{" + _name + ":\l\t"
-            for _inst in block.instructions[1:]:
-                _label += format_instruction(_inst) + "\l\t"
-            _label += "}"
-            self.g.node(_name, label=_label)
-            if block.branch:
-                self.g.edge(_name, block.branch.label)
-        else:
-            # Function definition. An empty block that connect to the Entry Block
-            self.g.node(self.fname, label=None, _attributes={'shape': 'ellipse'})
-            self.g.edge(self.fname, block.next_block.label)
+    def brokein2funcs(self):
+        """
+            .Pega a lista de instrucoes e a divide em funcoes
+            .Enumera cada linha dentro do escopo da funcao
+            .Armazena a lista de instrucoes em uma lista
+            .Retorna a lista na qual cada item eh uma lista contendo as instrucoes de uma funcao
+            .Retorna a lista na qual cada item eh uma lista contendo as instrucoes lider de cada funcao
+        """
+        _func = []
+        _instraux = []
+        _leaders = []
+        _leadaux = []
+        line = 1
+        for inst in self.code_3:
+            instr = [line, inst]
+            line += 1
+            _instraux.append(instr)
+
+            if inst[0].isnumeric():
+                _leadaux.append(instr)
+
+            if 'return' in inst[0]:
+                line = 1
+                _aux1 = _instraux.copy()
+                _func.append(_aux1)
+                _instraux.clear()
+                _aux2 = _leadaux.copy()
+                _leaders.append(_aux2)
+                _leadaux.clear()
+
+        return _func, _leaders
+                
+    def get_blocks(self):
+        """
+            .Pega uma sequencia de instrucoes de uma funcao e separa em blocos no modelo CFG
+            .Armazena o ponteiro do primeiro bloco de cada CFG em self.progCFG
+            .Por padrao progCFG[0] eh o bloco de instrucoes globais, pode ser None
+        """
+
+        # primeiro, separa as declaracoes globais
+        self.get_globals()
+
+        # segundo, separa as funcoes 
+        funcs_code, leaders = self.brokein2funcs()
+        
+        # terceiro, a partir do conjunto de instrucoes lider, determina os blocos existentes na funcao e os conecta gerando um CFG
+        
 
 
-    def visit_ConditionBlock(self, block):
-        # Get the label as node name
-        _name = block.label
-        # get the formatted instructions as node label
-        _label = "{" + _name + ":\l\t"
-        for _inst in block.instructions[1:]:
-            _label += format_instruction(_inst) + "\l\t"
-        _label +="|{<f0>T|<f1>F}}"
-        self.g.node(_name, label=_label)
-        self.g.edge(_name + ":f0", block.taken.label)
-        self.g.edge(_name + ":f1", block.fall_through.label)
+        # quarto, conecta os blocos gerando um CFG
+
+        block = BasicBlock('entry')
+        first_block = block
+        for code in self.code_3:
+            if code[0] == 'jump':
+                # adiciona instrucao atual
+                block.append(code)
+                print(f"adicinou {code}")
+                # cria novo bloco
+                new_block = BasicBlock(code[1])
+                # salva 'ponteiro'
+                block.next_block = new_block
+                # salva lista de nós predecessores
+                for pred_block in block.predecessors:
+                    new_block.predecessors.append(pred_block)
+                new_block.predecessors.append(block)
+                # muda o bloco sendo iterado
+                block = new_block
+            if code[0] == 'cbranch':
+                # adiciona instrucao atual
+                block.append(code)
+                # cria novo bloco
+                new_block = BasicBlock(code[2])
+                # salva 'ponteiro'
+                block.next_block = new_block
+                # salva lista de nós predecessores
+                for pred_block in block.predecessors:
+                    new_block.predecessors.append(pred_block)
+                new_block.predecessors.append(block)
+                # muda o bloco sendo iterado
+                block = new_block
+            else:
+                block.append(code)
+                print(f"Adicionou {format_instruction(code)} no bloco {block.label}")
+        print(f"primeiro bloco {first_block.label}")
+
+        # itera sobre todos os blocos imprimindo-os
+        block_pointer = first_block
+        while block_pointer.next_block:
+            print(f"Bloco {block_pointer.label}")
+            # imprime todas instrucoes do bloco
+            for inst in block_pointer.instructions:
+                print(f"\t{inst}")
+            block_pointer = block_pointer.next_block
+            # print(format_instruction(code))
 
 
-    def view(self, block):
-        while isinstance(block, Block):
-            name = "visit_%s" % type(block).__name__
-            if hasattr(self, name):
-                getattr(self, name)(block)
-            block = block.next_block
-        # You can use the next stmt to see the dot file
-        # print(self.g.source)
-        self.g.view()
-
-#        
-# At the end of visit_Program method in the Code Generator Class you call CFG view method
-# #
-
-#     def visit_Program(self):
-#         # ...
-#         if self.viewcfg:  # evaluate to True if -cfg flag is present in command line
-#             for _decl in node.gdecls:
-#                 if isinstance(_decl, FuncDef):
-#                     dot = CFG(_decl.decl.name.name)
-#                     dot.view(_decl.cfg)  # _decl.cfg contains the CFG for the function
 
 
-# if __name__== "__main__":
+
     

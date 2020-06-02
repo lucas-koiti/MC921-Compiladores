@@ -1,0 +1,37 @@
+Program: 
+    GlobalDecl: 
+        Decl: ID(name='a',  coord=<uc_ast.Coord object at 0x7fd8939e5850>,  type=None  )
+            VarDecl: 
+                Type: ['int']   @ 1:1
+            Constant: int, 3   @ 1:9
+    GlobalDecl: 
+        Decl: ID(name='b',  coord=<uc_ast.Coord object at 0x7fd8939e5790>,  type=None  )
+            VarDecl: 
+                Type: ['int']   @ 2:1
+            Constant: int, 4   @ 2:9
+    FuncDef: 
+        Type: ['int']   @ 4:1
+        Decl: ID(name='foo',  coord=<uc_ast.Coord object at 0x7fd8939a5490>,  type=None  )
+            FuncDecl: 
+                VarDecl: 
+                    Type: ['int']   @ 4:1
+        Compound:    @ 4:1
+            While:    @ 5:5
+                BinaryOp: ==   @ 5:12
+                    ID: a   @ 5:12
+                    Constant: int, 2   @ 5:17
+                Compound:    @ 5:1
+                    Assignment: +=   @ 6:9
+                        ID: a   @ 6:9
+                        Constant: int, 2   @ 6:14
+            Return:    @ 8:5
+                Constant: int, 2   @ 8:12
+    FuncDef: 
+        Type: ['int']   @ 11:1
+        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7fd8939a5a00>,  type=None  )
+            FuncDecl: 
+                VarDecl: 
+                    Type: ['int']   @ 11:1
+        Compound:    @ 11:1
+            Return:    @ 12:5
+                Constant: int, 1   @ 12:12
