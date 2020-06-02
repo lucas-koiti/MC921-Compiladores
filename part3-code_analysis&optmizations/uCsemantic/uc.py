@@ -14,7 +14,7 @@ from uc_parser import UCParser
 from uc_sema import SemanticAnalyzer
 from uc_code import GenerateCode
 from uc_interpreter import Interpreter
-
+import uc_block as blocks
 """
 One of the most important (and difficult) parts of writing a compiler
 is reliable reporting of error messages back to the user.  This file
@@ -116,6 +116,8 @@ class Compiler:
     """ This object encapsulates the compiler and serves as a
         facade interface for the compiler itself.
     """
+    code_3 = None
+
 
     def __init__(self):
         self.total_errors = 0
@@ -146,8 +148,9 @@ class Compiler:
 
     def _gencode(self, susy, ir_file, cfg):
         """ Generate uCIR Code for the decorated AST. """
-        self.gen = GenerateCode(cfg)
+        self.gen = GenerateCode()
         self.gen.visit(self.ast)
+        self.code_3 = self.gen.code
         # print(f"code ###\n{self.gen.code}\n###")
         # AQUI O CODIGO É GERADO
         self.gencode = self.gen.code
@@ -177,7 +180,7 @@ class Compiler:
             elif run_ir:
                 self.vm = Interpreter()
                 self.vm.run(self.gencode)
-        return 0
+        return 0, self.code_3
 
 
 def run_compiler():
@@ -192,6 +195,7 @@ def run_compiler():
     run_ir = True
     susy = False
     debug = False
+    cfg = None
 
     params = sys.argv[1:]
     files = sys.argv[1:]
@@ -240,8 +244,10 @@ def run_compiler():
         source = open(source_filename, 'r')
         code = source.read()
         source.close()
-
-        retval = Compiler().compile(code, susy, ast_file, ir_file, run_ir, cfg, debug)
+        # retorna o valor padrao e a lista de codigos
+        retval, code_3 = Compiler().compile(code, susy, ast_file, ir_file, run_ir, cfg, debug)
+        # passa os codigos de 3 endereços para obter os blocos
+        blocks.get_blocks(code_3)
         for f in open_files:
             f.close()
         if retval != 0:
