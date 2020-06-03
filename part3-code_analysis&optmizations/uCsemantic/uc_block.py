@@ -15,6 +15,16 @@ class Block(object):
         # Link to the next block   
         self.next_block = None
 
+        # Identifies if is a basic (0) or conditional (1: cbranch | 2: jump) block
+        self.kind = None
+
+        # Basic Block
+        self.branch = None  
+
+        # Conditional Block
+        self.truelabel = None
+        self.falselabel = None
+
 
     def append(self,instr):
         self.instructions.append(instr)
@@ -23,69 +33,6 @@ class Block(object):
     def __iter__(self):
         return iter(self.instructions)
 
-
-class BasicBlock(Block):
-    '''
-    Class for a simple basic block.  Control flow unconditionally
-    flows to the next block.
-    '''
-    def __init__(self, label):
-        super(BasicBlock, self).__init__(label)
-        # Not necessary the same as next_block in the linked list
-        self.branch = None  
-
-
-class ConditionBlock(Block):
-    """
-    Class for a block representing an conditional statement.
-    There are two branches to handle each possibility.
-    """
-    def __init__(self, label):
-        super(ConditionBlock, self).__init__(label)
-        self.taken = None
-        self.fall_through = None
-
- 
-class BlockVisitor(object):
-    '''
-    Class for visiting basic blocks.  Define a subclass and define
-    methods such as visit_BasicBlock or visit_IfBlock to implement
-    custom processing (similar to ASTs).
-    '''
-    def visit(self, block):
-        while isinstance(block,Block):
-            name = f"visit_{type(block).__name__}"
-            if hasattr(self,name):
-                getattr(self,name)(block)
-            block = block.next_block
-
-
-def format_instruction(t):
-    """
-    Auxiliary method to pretty print the instructions 
-    """
-    op = t[0]
-    if len(t) > 1:
-        if op == "define":
-            return f"\n{op} {t[1]}"
-        else:
-            _str = "" if op.startswith('global') else "  "
-            if op == 'jump':
-                _str += f"{op} label {t[1]}"
-            elif op == 'cbranch':
-                _str += f"{op} {t[1]} label {t[2]} label {t[3]}"
-            elif op == 'global_string':
-                _str += f"{op} {t[1]} \'{t[2]}\'"
-            elif op.startswith('return'):
-                _str += f"{op} {t[1]}"
-            else:
-                for _el in t:
-                    _str += f"{_el} "
-            return _str
-    elif op == 'print_void' or op == 'return_void':
-        return f"  {op}"
-    else:
-        return f"{op}"
 
     #################################
     #      CFG Block Generator      #   
@@ -106,7 +53,7 @@ class BlockGenerator(object):
             .Armazena em uma variavel da classe que contem todos os ponteiros para os blocos iniciais de uma CFG
         """
         i = 0
-        globalblock = BasicBlock('Globals')
+        globalblock = Block('Globals')
 
         while self.code_3[0][0] != 'define':
             instr = [i, self.code_3[0]]
@@ -163,55 +110,75 @@ class BlockGenerator(object):
         funcs_code, leaders = self.brokein2funcs()
         
         # terceiro, a partir do conjunto de instrucoes lider, determina os blocos existentes na funcao e os conecta gerando um CFG
+        block_dict = {}
+        i_func = 0
+        # laco para criar uma CFG pra cada funcao contida na lista de instrucoes
+        for func in funcs_code:
+            start_block = Block(func[0][0])                     # primeira instrucao eh sempre lider
+            current_block = start_block
+            current_block.append(func[0])
+            for inst in func[1:]:                               # percorre cada instrucao da funcao
+                if inst in leaders[i_func]:                     # se ela fizer parte de uma instrucao lider, inicia um novo bloco
+                    key = current_block.instructions[0][1][0]   # a chave para identificar o bloco é a label do temp usado na tupla e.g. ('1',)
+                    block_dict[key] = current_block             # salva o bloco corrente em um dict
+                    new_block = Block(inst[0])                  # cria um novo bloco
+                    current_block.next_block = new_block        # liga os blocos sequencialmente
+                    current_block = new_block
+                
+                current_block.append(inst)                      # continua a adicionar instrucoes ao bloco corrente       
+            i_func += 1                                         # contador para acessar a lista de instrucoes lider da funcao correta
+            key = current_block.instructions[0][1][0]
+            block_dict[key] = current_block 
+                    
+            # conecta os blocos da CFG, criando uma lista ligada com os blocos em sequencia do codigo e com pointers para seus fluxos
+            for block in block_dict.values():
+                # checa se a ultima instrucao do bloco eh um jump, cbranch ou qlq coisa
+                inst = block.instructions[-1][1]
+                if inst[0] == 'cbranch':
+                    block.kind = 1
+                    key = inst[2][1:]
+                    block.truelabel = block_dict[key]
+                    key = inst[3][1:]
+                    block.falselabel = block_dict[key]
+                elif inst[0] == 'jump':
+                    block.kind = 2
+                    key = inst[1][1:]
+                    block.branch = block_dict[key]
+                else:
+                    if 'return' in block.instructions[-1][1][0]:
+                        block.kind = -1
+                    else:
+                        block.kind = 0
+                        block.branch = block.next_block
+                                       
+            # salva o start_block como cabeça da lista de blocos da funcao analisada
+            self.progCFG.append(start_block)
+
+            # limpa a lista de blocos, pois todos ja estao ligados como "lista" (C kind of list)
+            block_dict.clear()
         
-
-
-        # quarto, conecta os blocos gerando um CFG
-
-        block = BasicBlock('entry')
-        first_block = block
-        for code in self.code_3:
-            if code[0] == 'jump':
-                # adiciona instrucao atual
-                block.append(code)
-                print(f"adicinou {code}")
-                # cria novo bloco
-                new_block = BasicBlock(code[1])
-                # salva 'ponteiro'
-                block.next_block = new_block
-                # salva lista de nós predecessores
-                for pred_block in block.predecessors:
-                    new_block.predecessors.append(pred_block)
-                new_block.predecessors.append(block)
-                # muda o bloco sendo iterado
-                block = new_block
-            if code[0] == 'cbranch':
-                # adiciona instrucao atual
-                block.append(code)
-                # cria novo bloco
-                new_block = BasicBlock(code[2])
-                # salva 'ponteiro'
-                block.next_block = new_block
-                # salva lista de nós predecessores
-                for pred_block in block.predecessors:
-                    new_block.predecessors.append(pred_block)
-                new_block.predecessors.append(block)
-                # muda o bloco sendo iterado
-                block = new_block
-            else:
-                block.append(code)
-                print(f"Adicionou {format_instruction(code)} no bloco {block.label}")
-        print(f"primeiro bloco {first_block.label}")
-
         # itera sobre todos os blocos imprimindo-os
-        block_pointer = first_block
-        while block_pointer.next_block:
-            print(f"Bloco {block_pointer.label}")
-            # imprime todas instrucoes do bloco
-            for inst in block_pointer.instructions:
-                print(f"\t{inst}")
-            block_pointer = block_pointer.next_block
-            # print(format_instruction(code))
+        for block_pointer in self.progCFG:
+            print()
+            print("---NEW CFG---")
+            while block_pointer:
+                print(f"Bloco {block_pointer.label}")
+                # imprime todas instrucoes do bloco
+                for inst in block_pointer.instructions:
+                    print(f"\t\t{inst}")
+                # imprime o fluxo do bloco
+                if block_pointer.kind == 0:
+                    print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
+                elif block_pointer.kind == 1:
+                    print("\t TRUE BLOCK : " + "bloco: " + str(block_pointer.truelabel.label))
+                    print("\t FALSE BLOCK : " + "bloco " + str(block_pointer.falselabel.label))
+                elif block_pointer.kind == 2:
+                    print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
+                block_pointer = block_pointer.next_block
+                # print(format_instruction(code))
+
+
+    
 
 
 

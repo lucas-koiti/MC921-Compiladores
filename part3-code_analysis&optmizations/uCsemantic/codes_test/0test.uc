@@ -1,13 +1,16 @@
-int a = 3;
-int b = 4;
+int g = 5;
 
 int foo(){
-    while (a == 2){
-        a += 2;
-    }
-    return 2;
+    return 1;
 }
 
 int main(){
+    int a = 3;
+    int b = 4;
+
+    while (a > b){
+        a += b;
+    }
+
     return 1;
 }
