@@ -95,7 +95,8 @@ class BlockGenerator(object):
                 _leadaux.clear()
 
         return _func, _leaders
-                
+
+  
     def get_blocks(self):
         """
             .Pega uma sequencia de instrucoes de uma funcao e separa em blocos no modelo CFG
