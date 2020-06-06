@@ -20,6 +20,7 @@ class GenerateCode(NodeVisitor):
         # store some temporaries
         self.temps = {}
         self.globals = {}
+        self.breaks = []
 
         # string counter
         self.str_counter = 0
@@ -575,6 +576,9 @@ class GenerateCode(NodeVisitor):
         _labelcont = self.new_temp()
         _labelfinish = self.new_temp()
 
+        # mark _labelfinish in an global list to uses as reference to break op
+        self.breaks.append(_labelfinish)
+
         # first get the initial value
         if isinstance(node.init, uc_ast.DeclList):
             _cond = self.visit(node.init.decls[0])
@@ -596,6 +600,9 @@ class GenerateCode(NodeVisitor):
         self.visit(node.stmt)
 
         # update the conditional
+        _newblock = self.new_temp()     # label to create a newblock to increase the cond variable
+        inst = (_newblock[1:],)
+        self.code.append(inst)
         _condatt = self.visit(node.next)
         inst = ('jump', _labelinit)
         self.code.append(inst)
@@ -604,6 +611,12 @@ class GenerateCode(NodeVisitor):
         inst = (_labelfinish[1:],)
         self.code.append(inst)
 
+    def visit_Break(self, node):
+        # gets the label of for's end in the global list self.breaks
+        inst = ('jump', self.breaks[-1])
+        self.code.append(inst)
+        # deletes because if there's another loop outside, it will get the last label too
+        del self.breaks[-1]
 
     def visit_While(self, node):
          # start the 3 jump labels
