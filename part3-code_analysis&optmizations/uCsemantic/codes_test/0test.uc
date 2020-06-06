@@ -1,16 +1,11 @@
-int g = 5;
-
-int foo(){
-    return 1;
-}
-
-int main(){
-    int a = 3;
-    int b = 4;
-
-    while (a > b){
-        a += b;
+int checkPrime(int n) {
+    int i, isPrime = 1;
+    for (i = 2; i <= n/2; ++i) {
+        if (n % i == 0) {
+            isPrime = 0;
+            break;
+        }
+       
     }
-
-    return 1;
+    return isPrime;
 }

@@ -1,40 +1,44 @@
 Program: 
-    GlobalDecl: 
-        Decl: ID(name='g',  coord=<uc_ast.Coord object at 0x7fbd871e6610>,  type=None  )
-            VarDecl: 
-                Type: ['int']   @ 1:1
-            Constant: int, 5   @ 1:9
     FuncDef: 
-        Type: ['int']   @ 3:1
-        Decl: ID(name='foo',  coord=<uc_ast.Coord object at 0x7fbd871e64c0>,  type=None  )
+        Type: ['int']   @ 1:1
+        Decl: ID(name='checkPrime',  coord=<uc_ast.Coord object at 0x7fd4cbc38640>,  type=None  )
             FuncDecl: 
+                ParamList: 
+                    Decl: ID(name='n',  coord=<uc_ast.Coord object at 0x7fd4cbc38850>,  type=None  )
+                        VarDecl: 
+                            Type: ['int']   @ 1:16
                 VarDecl: 
-                    Type: ['int']   @ 3:1
-        Compound:    @ 3:1
-            Return:    @ 4:5
-                Constant: int, 1   @ 4:12
-    FuncDef: 
-        Type: ['int']   @ 7:1
-        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7fbd871a5250>,  type=None  )
-            FuncDecl: 
+                    Type: ['int']   @ 1:1
+        Compound:    @ 1:1
+            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7fd4cbbfa250>,  type=None  )
                 VarDecl: 
-                    Type: ['int']   @ 7:1
-        Compound:    @ 7:1
-            Decl: ID(name='a',  coord=<uc_ast.Coord object at 0x7fbd871a5550>,  type=None  )
+                    Type: ['int']   @ 2:5
+            Decl: ID(name='isPrime',  coord=<uc_ast.Coord object at 0x7fd4cbbfa430>,  type=None  )
                 VarDecl: 
-                    Type: ['int']   @ 8:5
-                Constant: int, 3   @ 8:13
-            Decl: ID(name='b',  coord=<uc_ast.Coord object at 0x7fbd871a56d0>,  type=None  )
-                VarDecl: 
-                    Type: ['int']   @ 9:5
-                Constant: int, 4   @ 9:13
-            While:    @ 11:5
-                BinaryOp: >   @ 11:12
-                    ID: a   @ 11:12
-                    ID: b   @ 11:16
-                Compound:    @ 11:1
-                    Assignment: +=   @ 12:9
-                        ID: a   @ 12:9
-                        ID: b   @ 12:14
-            Return:    @ 15:5
-                Constant: int, 1   @ 15:12
+                    Type: ['int']   @ 2:5
+                Constant: int, 1   @ 2:22
+            For:    @ 3:5
+                Assignment: =   @ 3:10
+                    ID: i   @ 3:10
+                    Constant: int, 2   @ 3:14
+                BinaryOp: <=   @ 3:17
+                    ID: i   @ 3:17
+                    BinaryOp: /   @ 3:22
+                        ID: n   @ 3:22
+                        Constant: int, 2   @ 3:24
+                UnaryOp: ++   @ 3:29
+                    ID: i   @ 3:29
+                Compound:    @ 3:1
+                    If:    @ 4:9
+                        BinaryOp: ==   @ 4:13
+                            BinaryOp: %   @ 4:13
+                                ID: n   @ 4:13
+                                ID: i   @ 4:17
+                            Constant: int, 0   @ 4:22
+                        Compound:    @ 4:1
+                            Assignment: =   @ 5:13
+                                ID: isPrime   @ 5:13
+                                Constant: int, 0   @ 5:23
+                            Break:    @ 6:13
+            Return:    @ 10:5
+                ID: isPrime   @ 10:12

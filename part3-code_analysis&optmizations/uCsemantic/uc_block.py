@@ -52,7 +52,7 @@ class BlockGenerator(object):
             .Retira essas declaracoes da lista de instrucoes 
             .Armazena em uma variavel da classe que contem todos os ponteiros para os blocos iniciais de uma CFG
         """
-        i = 0
+        i = 1
         globalblock = Block('Globals')
 
         while self.code_3[0][0] != 'define':
@@ -175,7 +175,7 @@ class BlockGenerator(object):
                 elif block_pointer.kind == 2:
                     print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
                 block_pointer = block_pointer.next_block
-                # print(format_instruction(code))
+                
 
 
     
