@@ -15,6 +15,7 @@ from uc_sema import SemanticAnalyzer
 from uc_code import GenerateCode
 from uc_interpreter import Interpreter
 from uc_block import BlockGenerator
+from uc_analysis import AnalyzeOptimaze
 """
 One of the most important (and difficult) parts of writing a compiler
 is reliable reporting of error messages back to the user.  This file
@@ -251,6 +252,8 @@ def run_compiler():
         if code_3:
             blocks = BlockGenerator(code_3)
             blocks.get_blocks()
+            anal = AnalyzeOptimaze(blocks.progCFG)
+            anal.get_gen_kill()
         for f in open_files:
             f.close()
         if retval != 0:
