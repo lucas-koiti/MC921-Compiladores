@@ -15,7 +15,7 @@ class Block(object):
         # Link to the next block   
         self.next_block = None
 
-        # Identifies if is a basic (0) or conditional (1: cbranch | 2: jump) block
+        # Identifies if is a basic (0) or conditional (1: cbranch | 2: jump) block (-1 is the final block)
         self.kind = None
 
         # Basic Block
@@ -139,18 +139,22 @@ class BlockGenerator(object):
                     block.kind = 1
                     key = inst[2][1:]
                     block.truelabel = block_dict[key]
+                    block_dict[key].predecessors.append(block)
                     key = inst[3][1:]
                     block.falselabel = block_dict[key]
+                    block_dict[key].predecessors.append(block)
                 elif inst[0] == 'jump':
                     block.kind = 2
                     key = inst[1][1:]
                     block.branch = block_dict[key]
+                    block_dict[key].predecessors.append(block)
                 else:
                     if 'return' in block.instructions[-1][1][0]:
                         block.kind = -1
                     else:
                         block.kind = 0
                         block.branch = block.next_block
+                        block.next_block.predecessors.append(block)
                                        
             # salva o start_block como cabeça da lista de blocos da funcao analisada
             self.progCFG.append(start_block)
@@ -169,12 +173,21 @@ class BlockGenerator(object):
                     print(f"\t\t{inst}")
                 # imprime o fluxo do bloco
                 if block_pointer.kind == 0:
+                    for block in block_pointer.predecessors:
+                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
                     print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
                 elif block_pointer.kind == 1:
+                    for block in block_pointer.predecessors:
+                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
                     print("\t TRUE BLOCK : " + "bloco: " + str(block_pointer.truelabel.label))
                     print("\t FALSE BLOCK : " + "bloco " + str(block_pointer.falselabel.label))
                 elif block_pointer.kind == 2:
+                    for block in block_pointer.predecessors:
+                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
                     print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
+                else:
+                    for block in block_pointer.predecessors:
+                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
                 block_pointer = block_pointer.next_block
                 
 
