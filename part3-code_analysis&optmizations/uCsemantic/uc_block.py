@@ -44,6 +44,8 @@ class BlockGenerator(object):
         self.code_3 = code_3
         # ponteiros para os CFG's de cada funcao/global contida no codigo
         self.progCFG = []
+        # instruction index
+        self.index = 0
 
 
     def get_globals(self):
@@ -52,13 +54,12 @@ class BlockGenerator(object):
             .Retira essas declaracoes da lista de instrucoes 
             .Armazena em uma variavel da classe que contem todos os ponteiros para os blocos iniciais de uma CFG
         """
-        i = 1
         globalblock = Block('Globals')
 
         while self.code_3[0][0] != 'define':
-            instr = [i, self.code_3[0]]
+            instr = [self.index, self.code_3[0]]
             globalblock.append(instr)
-            i += 1
+            self.index += 1
             del self.code_3[0]
 
         self.progCFG.append(globalblock)
@@ -76,7 +77,7 @@ class BlockGenerator(object):
         _instraux = []
         _leaders = []
         _leadaux = []
-        line = 1
+        line = self.index
         for inst in self.code_3:
             instr = [line, inst]
             line += 1
@@ -84,7 +85,7 @@ class BlockGenerator(object):
 
             if inst[0].isnumeric():
                 _leadaux.append(instr)
-
+            #  se encontrou return, terminou uma funcao, entao encerra o bloco atual
             if 'return' in inst[0]:
                 line = 1
                 _aux1 = _instraux.copy()
@@ -97,7 +98,7 @@ class BlockGenerator(object):
         return _func, _leaders
 
   
-    def get_blocks(self):
+    def get_blocks(self, printf = True):
         """
             .Pega uma sequencia de instrucoes de uma funcao e separa em blocos no modelo CFG
             .Armazena o ponteiro do primeiro bloco de cada CFG em self.progCFG
@@ -163,34 +164,35 @@ class BlockGenerator(object):
             block_dict.clear()
         
         # itera sobre todos os blocos imprimindo-os
-        for block_pointer in self.progCFG:
-            print()
-            print("---NEW CFG---")
-            while block_pointer:
-                print(f"Bloco {block_pointer.label}")
-                # imprime todas instrucoes do bloco
-                for inst in block_pointer.instructions:
-                    print(f"\t\t{inst}")
-                # imprime o fluxo do bloco
-                if block_pointer.kind == 0:
-                    for block in block_pointer.predecessors:
-                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
-                    print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
-                elif block_pointer.kind == 1:
-                    for block in block_pointer.predecessors:
-                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
-                    print("\t TRUE BLOCK : " + "bloco: " + str(block_pointer.truelabel.label))
-                    print("\t FALSE BLOCK : " + "bloco " + str(block_pointer.falselabel.label))
-                elif block_pointer.kind == 2:
-                    for block in block_pointer.predecessors:
-                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
-                    print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
-                else:
-                    for block in block_pointer.predecessors:
-                        print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
-                block_pointer = block_pointer.next_block
+        if printf:
+            for block_pointer in self.progCFG:
+                print()
+                print("---NEW CFG---")
+                while block_pointer:
+                    print(f"Bloco {block_pointer.label}")
+                    # imprime todas instrucoes do bloco
+                    for inst in block_pointer.instructions:
+                        print(f"\t\t{inst}")
+                    # imprime o fluxo do bloco
+                    if block_pointer.kind == 0:
+                        for block in block_pointer.predecessors:
+                            print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
+                        print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
+                    elif block_pointer.kind == 1:
+                        for block in block_pointer.predecessors:
+                            print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
+                        print("\t TRUE BLOCK : " + "bloco: " + str(block_pointer.truelabel.label))
+                        print("\t FALSE BLOCK : " + "bloco " + str(block_pointer.falselabel.label))
+                    elif block_pointer.kind == 2:
+                        for block in block_pointer.predecessors:
+                            print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
+                        print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
+                    else:
+                        for block in block_pointer.predecessors:
+                            print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
+                    block_pointer = block_pointer.next_block
 
-        return self.progCFG       
+        return self.progCFG            
 
 
     

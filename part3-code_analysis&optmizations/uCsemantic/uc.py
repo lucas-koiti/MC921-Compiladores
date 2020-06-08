@@ -156,7 +156,7 @@ class Compiler:
             ir_file.write(_str)  
         if cfg:
             self.blocks = BlockGenerator(self.gen.code)
-            self.progcfg = self.blocks.get_blocks()
+            self.progcfg = self.blocks.get_blocks(False)
     
     def _opt(self, susy, opt_file, cfg, debug):
         self.opt = AnalyzeOptimaze(self.progcfg)
