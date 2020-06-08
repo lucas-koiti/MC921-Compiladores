@@ -24,7 +24,9 @@ class AnalyzeOptimaze:
                 if inst[1][0].find('store_') != -1:
                     # TODO verificar se no store a varivel que recebe atribuicao é a 2
                     attr_var = inst[1][2]
-                    self.gen.append(attr_var)
+                    # adiciona na ultima lista vazia criada
+                    self.gen[-1] = attr_var
+                    print(f"apendou na {idx}")
                     # guarda a variavel e a linha que foi atribuida
                     if attr_var in defs.keys():
                         defs[attr_var].append(idx)
@@ -37,16 +39,17 @@ class AnalyzeOptimaze:
                 # lista é vazia
                 pass
             if len(defs[var]) == 2:
-                self.kill[defs[var][0]] = defs[var][1]
-                self.kill[defs[var][1]] = defs[var][0]
+                self.kill[defs[var][0]-1] = defs[var][1]
+                self.kill[defs[var][1]-1] = defs[var][0]
             else:
                 for idx, line in enumerate(defs[var]):
                     # ineficiente mas é o que tem pra hoje
-                    self.kill[line] = defs[var][:idx] + defs[var][idx+1:]
+                    self.kill[line-1] = defs[var][:idx] + defs[var][idx+1:]
+        print("linha\tgen\tkill")
+        for idx, (gen, kill) in enumerate(zip(self.gen, self.kill), 1):
+            print(f"   {idx}\t{gen}\t{kill}")
 
-        print("kill:")
-        for idx, q in enumerate(self.kill):
-            print(f"{idx} - {q}")
+
             
         
     def reachingDefinitions(self):
