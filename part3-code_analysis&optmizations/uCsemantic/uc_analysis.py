@@ -17,11 +17,11 @@ class AnalyzeOptimaze:
         # itera todas cfgs e obtem o gen[]
         for cfg in self.CFGs:
             # e todas suas instrucoes
-            for idx, inst in enumerate(cfg.instructions):
+            for idx, inst in enumerate(cfg.instructions, 1):
                 self.gen.append([])
                 self.kill.append([])
                 # qualquer store adiciona a variavel em questao no gen[]
-                if inst[1][0] == 'store_int':
+                if inst[1][0].find('store_') != -1:
                     # TODO verificar se no store a varivel que recebe atribuicao é a 2
                     attr_var = inst[1][2]
                     self.gen.append(attr_var)
@@ -30,14 +30,25 @@ class AnalyzeOptimaze:
                         defs[attr_var].append(idx)
                     else:
                         defs[attr_var] = [idx]
-        # TODO arrumar geração do kill
+        print("defs:")
         for var in defs.keys():
             print(f"var: {var} linhas: {defs[var]}")
-            for idx, line in enumerate(defs[var]):
-                self.kill[line] = [defs[var][:idx:]]
-        print(self.kill)
-        
+            if len(defs[var]) == 1:
+                # lista é vazia
+                pass
+            if len(defs[var]) == 2:
+                self.kill[defs[var][0]] = defs[var][1]
+                self.kill[defs[var][1]] = defs[var][0]
+            else:
+                for idx, line in enumerate(defs[var]):
+                    # ineficiente mas é o que tem pra hoje
+                    self.kill[line] = defs[var][:idx] + defs[var][idx+1:]
 
+        print("kill:")
+        for idx, q in enumerate(self.kill):
+            print(f"{idx} - {q}")
+            
+        
     def reachingDefinitions(self):
         """ Função que executa a analise de reaching defintions nas CFGs obtidas.
         """
