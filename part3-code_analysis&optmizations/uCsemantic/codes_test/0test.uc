@@ -9,3 +9,7 @@ int checkPrime(int n) {
     }
     return isPrime;
 }
+
+int main(){
+    return 1;
+}

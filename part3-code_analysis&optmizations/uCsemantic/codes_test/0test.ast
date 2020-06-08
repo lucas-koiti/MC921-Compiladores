@@ -1,19 +1,19 @@
 Program: 
     FuncDef: 
         Type: ['int']   @ 1:1
-        Decl: ID(name='checkPrime',  coord=<uc_ast.Coord object at 0x7ff3f6fd1820>,  type=None  )
+        Decl: ID(name='checkPrime',  coord=<uc_ast.Coord object at 0x7ff926bf8910>,  type=None  )
             FuncDecl: 
                 ParamList: 
-                    Decl: ID(name='n',  coord=<uc_ast.Coord object at 0x7ff3f6fd1a00>,  type=None  )
+                    Decl: ID(name='n',  coord=<uc_ast.Coord object at 0x7ff926bf8b20>,  type=None  )
                         VarDecl: 
                             Type: ['int']   @ 1:16
                 VarDecl: 
                     Type: ['int']   @ 1:1
         Compound:    @ 1:1
-            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7ff3f6f413a0>,  type=None  )
+            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7ff926bb8520>,  type=None  )
                 VarDecl: 
                     Type: ['int']   @ 2:5
-            Decl: ID(name='isPrime',  coord=<uc_ast.Coord object at 0x7ff3f6f41580>,  type=None  )
+            Decl: ID(name='isPrime',  coord=<uc_ast.Coord object at 0x7ff926bb8700>,  type=None  )
                 VarDecl: 
                     Type: ['int']   @ 2:5
                 Constant: int, 1   @ 2:22
@@ -42,3 +42,12 @@ Program:
                             Break:    @ 6:13
             Return:    @ 10:5
                 ID: isPrime   @ 10:12
+    FuncDef: 
+        Type: ['int']   @ 13:1
+        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7ff926bb8b80>,  type=None  )
+            FuncDecl: 
+                VarDecl: 
+                    Type: ['int']   @ 13:1
+        Compound:    @ 13:1
+            Return:    @ 14:5
+                Constant: int, 1   @ 14:12

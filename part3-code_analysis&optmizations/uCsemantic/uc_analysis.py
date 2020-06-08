@@ -7,6 +7,9 @@ class AnalyzeOptimaze:
         self.gen = []
         self.kill = []
 
+        # codigo optimal gerado (semelhante ao codegen)
+        self.code = [('define', '@checkPrime')]
+
 
     """ Reaching Definitions """
     # TODO verificar qual é o escopo de execucao do RD, se ele é aplicado a individualmente a cada
@@ -46,3 +49,6 @@ class AnalyzeOptimaze:
     """ Liveness Analysis """
 
     """ Available Expressions """
+
+    def optmize(self):
+        self.get_gen_kill()

@@ -189,7 +189,8 @@ class BlockGenerator(object):
                     for block in block_pointer.predecessors:
                         print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
                 block_pointer = block_pointer.next_block
-                
+
+        return self.progCFG       
 
 
     
