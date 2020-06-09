@@ -10,9 +10,11 @@ class AnalyzeOptimaze:
 
     """ Reaching Definitions """
     def get_gen_kill(self):
-        # dicionario auxiliar que guarda todas as linhas da variaveis utilizadas
+        # defs é um dicionario variavel : lista de linhas onde a variavel recebe atribuição
         defs = {}
+        # gen é um array com o tamanho da quantidade de linhas do bloco, onde há atribuição ele salva a variavel que foi atualiuzada
         gen = []
+        # kill é todas as defs de alguma variavel menos a que foi atribuida na linha sendo itarada
         kill = []
         # itera todas cfgs e obtem o gen[]
         for idx, block in enumerate(self.CFGs):
@@ -22,6 +24,7 @@ class AnalyzeOptimaze:
                 # e todas suas instrucoes
                 for idx, inst in enumerate(block.instructions):
                     print(f"\t{inst}")
+                    # cria lista vazia para linha sendo iterada
                     gen.append([])
                     kill.append([])
                     # qualquer store adiciona a variavel em questao no gen[]
@@ -36,6 +39,8 @@ class AnalyzeOptimaze:
                         else:
                             defs[attr_var] = [idx]
                 print("defs:")
+                # eu quebrei em opcoes pois não tinha uma forma muito eficiente de fazer a
+                # remoção de um elemento da lista sem modificar
                 for var in defs.keys():
                     print(f"var: {var} linhas: {defs[var]}")
                     if len(defs[var]) == 1:
