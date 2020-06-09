@@ -58,6 +58,9 @@ class AnalyzeOptimaze:
                 print("\n------Tabela Gen Kill ------\nlinha\tgen\tkill")
                 for idx, (gen, kill) in enumerate(zip(gen, kill)):
                     print(f"   {idx}\t{gen}\t{kill}")
+                
+                # TODO reaching deve ser implementado aqui
+                
                 gen = []
                 kill = []
                 defs = {}
@@ -69,13 +72,7 @@ class AnalyzeOptimaze:
     def reachingDefinitions(self):
         """ Função que executa a analise de reaching defintions nas CFGs obtidas.
         """
-        # out = {}
-        # print("\n\nFUNCAO PORRA")
-        # for cfg in self.CFGs:
-        #     while cfg:
-        #         print(cfg.label)
-        #         print(f"\t{cfg.instructions}")
-        #         cfg = cfg.next_block
+        pass
 
     """ Liveness Analysis """
 
