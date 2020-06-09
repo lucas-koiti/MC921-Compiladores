@@ -1,53 +1,49 @@
 Program: 
     FuncDef: 
-        Type: ['int']   @ 1:1
-        Decl: ID(name='checkPrime',  coord=<uc_ast.Coord object at 0x7fdb8594e970>,  type=None  )
-            FuncDecl: 
-                ParamList: 
-                    Decl: ID(name='n',  coord=<uc_ast.Coord object at 0x7fdb8594eb80>,  type=None  )
-                        VarDecl: 
-                            Type: ['int']   @ 1:16
-                VarDecl: 
-                    Type: ['int']   @ 1:1
-        Compound:    @ 1:1
-            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7fdb85913580>,  type=None  )
-                VarDecl: 
-                    Type: ['int']   @ 2:5
-            Decl: ID(name='isPrime',  coord=<uc_ast.Coord object at 0x7fdb85913760>,  type=None  )
-                VarDecl: 
-                    Type: ['int']   @ 2:5
-                Constant: int, 1   @ 2:22
-            For:    @ 3:5
-                Assignment: =   @ 3:10
-                    ID: i   @ 3:10
-                    Constant: int, 2   @ 3:14
-                BinaryOp: <=   @ 3:17
-                    ID: i   @ 3:17
-                    BinaryOp: /   @ 3:22
-                        ID: n   @ 3:22
-                        Constant: int, 2   @ 3:24
-                UnaryOp: ++   @ 3:29
-                    ID: i   @ 3:29
-                Compound:    @ 3:1
-                    If:    @ 4:9
-                        BinaryOp: ==   @ 4:13
-                            BinaryOp: %   @ 4:13
-                                ID: n   @ 4:13
-                                ID: i   @ 4:17
-                            Constant: int, 0   @ 4:22
-                        Compound:    @ 4:1
-                            Assignment: =   @ 5:13
-                                ID: isPrime   @ 5:13
-                                Constant: int, 0   @ 5:23
-                            Break:    @ 6:13
-            Return:    @ 10:5
-                ID: isPrime   @ 10:12
-    FuncDef: 
-        Type: ['int']   @ 13:1
-        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7fdb85913be0>,  type=None  )
+        Type: ['int']   @ 2:1
+        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7f74870a3820>,  type=None  )
             FuncDecl: 
                 VarDecl: 
-                    Type: ['int']   @ 13:1
-        Compound:    @ 13:1
+                    Type: ['int']   @ 2:1
+        Compound:    @ 2:1
+            Decl: ID(name='a',  coord=<uc_ast.Coord object at 0x7f74870a3a00>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 3:5
+                Constant: int, 3   @ 3:13
+            Decl: ID(name='b',  coord=<uc_ast.Coord object at 0x7f74870655b0>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 4:5
+                Constant: int, 5   @ 4:13
+            Decl: ID(name='d',  coord=<uc_ast.Coord object at 0x7f7487065700>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 5:5
+                Constant: int, 4   @ 5:13
+            Decl: ID(name='x',  coord=<uc_ast.Coord object at 0x7f7487065730>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 6:5
+                Constant: int, 100   @ 6:13
+            Decl: ID(name='c',  coord=<uc_ast.Coord object at 0x7f7487065820>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 7:5
+            If:    @ 9:5
+                BinaryOp: >   @ 9:9
+                    ID: a   @ 9:9
+                    ID: b   @ 9:11
+                Compound:    @ 9:1
+                    Assignment: =   @ 10:9
+                        ID: c   @ 10:9
+                        BinaryOp: +   @ 10:13
+                            ID: a   @ 10:13
+                            ID: b   @ 10:15
+                    Assignment: =   @ 11:9
+                        ID: d   @ 11:9
+                        Constant: int, 2   @ 11:13
+            Assignment: =   @ 13:5
+                ID: c   @ 13:5
+                Constant: int, 4   @ 13:9
             Return:    @ 14:5
-                Constant: int, 1   @ 14:12
+                BinaryOp: +   @ 14:12
+                    BinaryOp: *   @ 14:12
+                        ID: b   @ 14:12
+                        ID: d   @ 14:14
+                    ID: c   @ 14:16

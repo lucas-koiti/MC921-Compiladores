@@ -1,15 +1,15 @@
-int checkPrime(int n) {
-    int i, isPrime = 1;
-    for (i = 2; i <= n/2; ++i) {
-        if (n % i == 0) {
-            isPrime = 0;
-            break;
-        }
-       
-    }
-    return isPrime;
-}
 
 int main(){
-    return 1;
+    int a = 3;
+    int b = 5;
+    int d = 4;
+    int x = 100;
+    int c;
+
+    if (a>b){
+        c = a+b;
+        d = 2;
+    }
+    c = 4;
+    return b*d+c;
 }

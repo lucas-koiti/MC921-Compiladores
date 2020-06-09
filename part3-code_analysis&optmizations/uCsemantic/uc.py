@@ -156,10 +156,15 @@ class Compiler:
             ir_file.write(_str)  
         if cfg:
             self.blocks = BlockGenerator(self.gen.code)
-            self.progcfg = self.blocks.get_blocks(False)
+            self.progcfg = self.blocks.get_blocks()
     
     def _opt(self, susy, opt_file, cfg, debug):
-        self.opt = AnalyzeOptimaze(self.progcfg)
+        if cfg:
+            self.opt = AnalyzeOptimaze(self.progcfg)
+        else:
+            self.blocks = BlockGenerator(self.gen.code)
+            self.progcfg = self.blocks.get_blocks(False)
+            self.opt = AnalyzeOptimaze(self.progcfg)
         self.opt.optmize()
         self.optcode = self.opt.code
         """if not susy and opt_file is not None:
@@ -186,7 +191,7 @@ class Compiler:
             else:
                 if opt:
                     """self.speedup = len(self.gencode) / len(self.optcode)
-                    sys.stderr.write("speedup = %.2f\n" % self.speedup)"""
+                    sys.stderr.write("speedup = %.2f\n" % self.speedup) TODO"""
                 if run_ir and not cfg:
                     self.vm = Interpreter()
                     if opt:

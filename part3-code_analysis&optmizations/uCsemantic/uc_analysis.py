@@ -1,18 +1,30 @@
+from uc_block import BlockGenerator
 
-class AnalyzeOptimaze:
+class AnalyzeOptimaze(object):
     CFGs = []
 
-    def __init__(self, cfg_list: list):
+    def __init__(self, cfg_list):
+        # CFG divididas por funcoes
         self.CFGs = cfg_list
-        # self.gen = []
-        # self.kill = []
 
         # codigo optimal gerado (semelhante ao codegen)
-        self.code = [('define', '@checkPrime')]
+        self.code = []
 
 
-    """ Reaching Definitions """
-    def get_gen_kill(self):
+    def optmize(self): # classe de teste por enquanto, no futuro aplica as otimizacoes e gera codigo
+        """ chama suas funcoes aqui, semelhante ao que voce fazia no uc.py """
+
+        self.reachingdef_anal() #RUDO
+
+        #aux = self.liveness_anal()
+        #print(aux)
+
+    
+    ############################
+    #   Reaching Definitions   #  
+    ############################
+
+    def reachingdef_anal(self):
         # defs é um dicionario variavel : lista de linhas onde a variavel recebe atribuição
         defs = {}
         # gen é um array com o tamanho da quantidade de linhas do bloco, onde há atribuição ele salva a variavel que foi atualiuzada
@@ -62,7 +74,7 @@ class AnalyzeOptimaze:
                 for idx, (gen, kill) in enumerate(zip(gen, kill)):
                     print(f"   {idx}\t{gen}\t{kill}")
                 
-                # TODO reaching deve ser implementado aqui
+                # TODO reaching deve ser implementado aqui 
                 
                 gen = []
                 kill = []
@@ -70,16 +82,90 @@ class AnalyzeOptimaze:
                 block = block.next_block
 
 
-            
-        
-    def reachingDefinitions(self):
-        """ Função que executa a analise de reaching defintions nas CFGs obtidas.
+    #########################
+    #   Liveness Analysis   #  
+    #########################
+
+    def liveness_anal(self):
+        """ .funcao que realiza o liveness analysis
+            .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os in's e out's 
         """
-        pass
 
-    """ Liveness Analysis """
+        # lista em que cada item é um dict da forma 'block_label': [[gen],[kill]]
+        # portanto, cada item representa uma CFG
+        cfgs_genkill = []
+        block_gen = []
+        block_kill = []
+        labelGK = {}
 
-    """ Available Expressions """
+        #find gen kill      
+        for cfg in self.CFGs:                                   # percorre cada cfg (cada funcao) do programa
+            if cfg.label == 'Globals':
+                pass
+            else:
+                # cada cfg é um "ponteiro" do primeiro bloco dela
+                block = cfg
+                
+                while block:                                    # percorre cada bloco da cfg         
+                    labelGK[block.label] = []
+                   
+                    for instr in block.instructions:            # percorre cada instrucao da cfg
+                        kill = self._getKill_live(instr)
+                        if kill and (kill not in block_kill):
+                            block_kill.append(kill)
+                        gen = self._getGen_live(instr)
+                        if gen and (gen not in block_gen) and (gen not in block_kill):
+                            block_gen.append(gen)
 
-    def optmize(self):
-        self.get_gen_kill()
+                    auxgen = block_gen.copy()
+                    auxkill = block_kill.copy()
+                    lista = [auxgen, auxkill]
+                    auxlist = lista.copy()
+                    labelGK[block.label] = auxlist
+                    lista.clear()
+                    block_gen.clear()
+                    block_kill.clear()
+
+                    block = block.next_block
+            
+            auxdict = labelGK.copy()
+            cfgs_genkill.append(auxdict)
+            labelGK.clear()
+
+        return cfgs_genkill
+        
+    def _getGen_live(self, instr):
+        """ .recebe uma instrucao
+            .retorna o GEN dela
+        """
+        gen = None
+
+        if 'load' in instr[1][0]:
+            gen = instr[1][1]            
+        elif 'param' in instr[1][0]:
+            pass
+        elif 'print' in instr[1][0]:
+            pass
+        elif 'call' in instr[1][0]:
+            pass
+        
+        return gen
+
+    def _getKill_live(self, instr):
+        """ .recebe uma instrucao
+            .retorna o Kill dela
+        """
+        kill = None
+
+        if 'store' in instr[1][0]:
+            kill = instr[1][2]
+        elif 'read' in instr[1][0]:
+            pass
+
+        return kill
+        
+
+        
+    
+
+    
