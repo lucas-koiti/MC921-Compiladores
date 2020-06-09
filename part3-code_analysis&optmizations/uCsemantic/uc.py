@@ -251,9 +251,10 @@ def run_compiler():
         # passa os codigos de 3 endereços para obter os blocos
         if code_3:
             blocks = BlockGenerator(code_3)
-            blocks.get_blocks()
+            blocks.get_blocks(False)
             anal = AnalyzeOptimaze(blocks.progCFG)
             anal.get_gen_kill()
+            # anal.reachingDefinitions()
         for f in open_files:
             f.close()
         if retval != 0:
