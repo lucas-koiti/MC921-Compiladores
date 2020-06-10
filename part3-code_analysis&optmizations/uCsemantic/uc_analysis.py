@@ -1,7 +1,6 @@
 from uc_block import BlockGenerator
 
 class AnalyzeOptimaze(object):
-    CFGs = []
 
     def __init__(self, cfg_list):
         # CFG divididas por funcoes
@@ -14,11 +13,31 @@ class AnalyzeOptimaze(object):
     def optmize(self): # classe de teste por enquanto, no futuro aplica as otimizacoes e gera codigo
         """ chama suas funcoes aqui, semelhante ao que voce fazia no uc.py """
 
-        self.reachingdef_anal() #RUDO
+        #self.reachingdef_anal() #RUDO
 
-        #aux = self.liveness_anal()
-        #print(aux)
+        self.deadcode()
 
+    #############################
+    #   Dead Code Elimination   #  
+    #############################
+    def deadcode(self):
+        """ .realiza a liveness analysis
+            .para cada bloco analisa se ha deadcode
+            .altera o codigo otimizando-o
+        """
+        liveness = self.liveness_anal()
+        print(liveness)
+
+        for i in range(1, len(self.CFGs)):
+            firstblock = self.CFGs[i]
+            block = firstblock
+            while block:
+                for instr in block.instructions:
+                    if 'store' in instr[1][0]:
+                        if instr[1][2] not in liveness[i][block.label][1]:
+                            print(instr)
+
+                block = block.next_block
     
     ############################
     #   Reaching Definitions   #  
@@ -90,10 +109,100 @@ class AnalyzeOptimaze(object):
         """ .funcao que realiza o liveness analysis
             .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os in's e out's 
         """
+        cfgs_inout = []
+        # inicializa com um dict vazio, pois a primeira posicao é um bloco dos globais
+        cfgs_inout.append({})
 
+        # 1. achar o gen e kill de cada bloco em todas as CFG
+        #       estrutura: [{},{label:[[gen],[kill]]}, ...] 
+        #       cada dict é uma CFG, cada key é label do bloco, cada key guarda uma lista com duas listas gen e kill
+        cfgs_genkill = self._getGenKill()
+        #print(cfgs_genkill[1][18])
+
+        # 2. worklist para definir os in's e out's
+        #       in_out é um dict contendo como key o label do bloco e valor uma lista [[in],[out]]
+        for i in range(1, len(self.CFGs)):
+            in_out = self._worklist_live(self.CFGs[i], cfgs_genkill[i])
+            aux = in_out.copy()
+            cfgs_inout.append(aux)
+            in_out.clear()
+    
+        return cfgs_inout
+
+
+    def _worklist_live(self, cfg, cfg_genkill):
+        """ .realiza o algoritmo de worklist para determinar os in's e out's de cada bloco
+            .cfg corresponde ao primeiro bloco da CFG (lista a la 'c')
+            .cfg_genkill representa um dicionario com uma key sendo o label do bloco e o valor uma lista[[gen],[kill]]
+            .retorna um dict com a key sendo o label do bloco e o valor uma lista [[in],[out]]
+        """
+        # estrutura para criar o dict de return
+        cfg_inout = {}
+
+        # algoritmo worklist
+        worklist = []
+
+        #   inicializa a lista W com os labels de todos os blocos
+        #   inicializa um dict com o label dos sucessores de um bloco
+        #   inicializa um dict com o label dos predecessores de um bloco
+        succ = {}
+        successors = []
+        pred = {}
+        predecessors = []
+        block = cfg
+        while block:
+            worklist.append(block.label)
+            # successors
+            if block.branch:
+                successors.append(block.branch.label)
+            if block.truelabel:
+                successors.append(block.truelabel.label)
+            if block.falselabel:
+                successors.append(block.falselabel.label)
+            succ[block.label] = successors.copy()
+            successors.clear()
+            # predecessors
+            for p in block.predecessors:
+                predecessors.append(p.label)
+            pred[block.label] =  predecessors.copy()
+            predecessors.clear()
+
+            block = block.next_block
+        
+        #   inicializa todos os blocos com duas listas vazias [in] e [out]
+        for block in worklist:
+            cfg_inout[block] = [[],[]]
+
+        #   enquanto houver blocos para serem analisados
+        #   cfg_inout[n][0] -> in[n] e cfg_inout[n][1] -> out[n]
+        #   cfg_genkill[n][0] -> gen[n] e cfg_genkill[n][1] -> kill[n]
+        while worklist:
+            # let n = w.pop()
+            n = worklist.pop()                      
+            # old_in = in[n]
+            old_in = cfg_inout[n][0]                
+            # out[n] := Un'insucc[n] in[n1]
+            auxin = []                               
+            for succ_in in succ[n]:
+                auxin = list(set(auxin) | set(cfg_inout[succ_in][0]))
+            cfg_inout[n][1] = auxin.copy()
+            auxin.clear()
+            # in[n] := gen[n] U (out[n] - kill[n])
+            cfg_inout[n][0] = list(set(cfg_genkill[n][0]) | set([v for v in cfg_inout[n][1] if v not in cfg_genkill[n][1]]))
+            # if(old_in != in[n])
+            if old_in != cfg_inout[n][0]:
+                for m in pred[n]:
+                    worklist.append(m)
+
+        return cfg_inout
+
+
+    def _getGenKill(self):
         # lista em que cada item é um dict da forma 'block_label': [[gen],[kill]]
         # portanto, cada item representa uma CFG
         cfgs_genkill = []
+        
+        # estrutura para armazenar os gen/kill de cada bloco
         block_gen = []
         block_kill = []
         labelGK = {}
@@ -133,7 +242,8 @@ class AnalyzeOptimaze(object):
             labelGK.clear()
 
         return cfgs_genkill
-        
+
+
     def _getGen_live(self, instr):
         """ .recebe uma instrucao
             .retorna o GEN dela
