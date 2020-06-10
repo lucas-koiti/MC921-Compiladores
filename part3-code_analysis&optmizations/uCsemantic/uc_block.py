@@ -47,57 +47,6 @@ class BlockGenerator(object):
         # instruction index
         self.index = 0
 
-
-    def get_globals(self):
-        """ 
-            .Pega todas as declaracoes globais e guarda em um bloco, enumerando as linhas a partir de 0
-            .Retira essas declaracoes da lista de instrucoes 
-            .Armazena em uma variavel da classe que contem todos os ponteiros para os blocos iniciais de uma CFG
-        """
-        globalblock = Block('Globals')
-
-        while self.code_3[0][0] != 'define':
-            instr = [self.index, self.code_3[0]]
-            globalblock.append(instr)
-            self.index += 1
-            del self.code_3[0]
-
-        self.progCFG.append(globalblock)
-
-
-    def brokein2funcs(self):
-        """
-            .Pega a lista de instrucoes e a divide em funcoes
-            .Enumera cada linha dentro do escopo da funcao
-            .Armazena a lista de instrucoes em uma lista
-            .Retorna a lista na qual cada item eh uma lista contendo as instrucoes de uma funcao
-            .Retorna a lista na qual cada item eh uma lista contendo as instrucoes lider de cada funcao
-        """
-        _func = []
-        _instraux = []
-        _leaders = []
-        _leadaux = []
-        line = self.index
-        for inst in self.code_3:
-            instr = [line, inst]
-            line += 1
-            _instraux.append(instr)
-
-            if inst[0].isnumeric():
-                _leadaux.append(instr)
-            #  se encontrou return, terminou uma funcao, entao encerra o bloco atual
-            if 'return' in inst[0]:
-                line = 1
-                _aux1 = _instraux.copy()
-                _func.append(_aux1)
-                _instraux.clear()
-                _aux2 = _leadaux.copy()
-                _leaders.append(_aux2)
-                _leadaux.clear()
-
-        return _func, _leaders
-
-  
     def get_blocks(self, printf = True):
         """
             .Pega uma sequencia de instrucoes de uma funcao e separa em blocos no modelo CFG
@@ -163,11 +112,71 @@ class BlockGenerator(object):
             # limpa a lista de blocos, pois todos ja estao ligados como "lista" (C kind of list)
             block_dict.clear()
         
-        # itera sobre todos os blocos imprimindo-os
+        # imprime as CFGS
+        self.printCFG(printf)
+
+        return self.progCFG 
+
+
+    def get_globals(self):
+        """ 
+            .Pega todas as declaracoes globais e guarda em um bloco, enumerando as linhas a partir de 0
+            .Retira essas declaracoes da lista de instrucoes 
+            .Armazena em uma variavel da classe que contem todos os ponteiros para os blocos iniciais de uma CFG
+        """
+        globalblock = Block('Globals')
+
+        while self.code_3[0][0] != 'define':
+            instr = [self.index, self.code_3[0]]
+            globalblock.append(instr)
+            self.index += 1
+            del self.code_3[0]
+
+        self.progCFG.append(globalblock)
+
+
+    def brokein2funcs(self):
+        """
+            .Pega a lista de instrucoes e a divide em funcoes
+            .Enumera cada linha dentro do escopo da funcao
+            .Armazena a lista de instrucoes em uma lista
+            .Retorna a lista na qual cada item eh uma lista contendo as instrucoes de uma funcao
+            .Retorna a lista na qual cada item eh uma lista contendo as instrucoes lider de cada funcao
+        """
+        _func = []
+        _instraux = []
+        _leaders = []
+        _leadaux = []
+        line = self.index
+        for inst in self.code_3:
+            instr = [line, inst]
+            line += 1
+            _instraux.append(instr)
+
+            if inst[0].isnumeric():
+                _leadaux.append(instr)
+            #  se encontrou return, terminou uma funcao, entao encerra o bloco atual
+            if 'return' in inst[0]:
+                line = 1
+                _aux1 = _instraux.copy()
+                _func.append(_aux1)
+                _instraux.clear()
+                _aux2 = _leadaux.copy()
+                _leaders.append(_aux2)
+                _leadaux.clear()
+
+        return _func, _leaders
+
+ # itera sobre todos os blocos imprimindo-os
+    def printCFG(self, printf):
         if printf:
             for block_pointer in self.progCFG:
                 print()
-                print("---NEW CFG---")
+                if block_pointer.instructions != []:
+                    name = block_pointer.instructions[0][1][1]
+                else:
+                    name = 'globals'
+                print(f"\t\t---CFG: {name}---")
                 while block_pointer:
                     print(f"Bloco {block_pointer.label}")
                     # imprime todas instrucoes do bloco
@@ -191,8 +200,7 @@ class BlockGenerator(object):
                         for block in block_pointer.predecessors:
                             print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
                     block_pointer = block_pointer.next_block
-
-        return self.progCFG            
+    
 
 
     
