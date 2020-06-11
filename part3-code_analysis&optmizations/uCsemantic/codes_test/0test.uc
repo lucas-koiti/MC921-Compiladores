@@ -1,10 +1,7 @@
-int global;
-void f ()
-{
-  int i;
-  i = 1;          /* dead store */
-  global = 1;     /* dead store */
-  global = 2;
-  return;
-  global = 3;     /* unreachable */
+int main() {
+    int x =2, y, z;
+    y = ++x;
+    z = x++;
+    assert y == 3 && z == 3;
+    return 0;
 }
