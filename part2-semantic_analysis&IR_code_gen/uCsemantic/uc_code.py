@@ -266,7 +266,7 @@ class GenerateCode(NodeVisitor):
             self.code.append(inst)   
         else:
             _tmp = self.new_temp()
-
+            
             inst = ('alloc_'+ node.typeaux + _underdim, _tmp)
             self.code.append(inst)
             
@@ -292,9 +292,9 @@ class GenerateCode(NodeVisitor):
                     # store in the declared temporary
                     inst = ('store_'+ node.typeaux + _underdim, _str, _tmp)
                     self.code.append(inst)
-                    
+            
             self.temps[node.name] = _tmp
-        return _tmp
+            return _tmp
 
     def visit_ArrayRef(self, node):
         if isinstance(node.name, uc_ast.ID):
