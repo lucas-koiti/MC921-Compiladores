@@ -165,10 +165,10 @@ class Compiler:
             self.blocks = BlockGenerator(self.gen.code)
             self.progcfg = self.blocks.get_blocks(False)
             self.opt = AnalyzeOptimaze(self.progcfg)
-        self.opt.optmize()
+        _code = self.opt.optmize()
         self.optcode = self.opt.code
-        """if not susy and opt_file is not None:
-            opt_file.write(str(self.optcode[0]))  TODO"""
+        if not susy and opt_file is not None:
+            opt_file.write(_code)
 
     def _do_compile(self, susy, ast_file, ir_file, opt_file, cfg, opt, debug):
         """ Compiles the code to the given file object. """
@@ -264,11 +264,11 @@ def run_compiler():
             open_files.append(ir_file)
 
         opt_file = None
-        """if opt and not susy:
+        if opt and not susy:
             opt_filename = source_filename[:-3] + '.opt'
             print("Outputting the optimized uCIR to %s." % opt_filename)
             opt_file = open(opt_filename, 'w')
-            open_files.append(opt_file) TODO"""
+            open_files.append(opt_file)
 
         source = open(source_filename, 'r')
         code = source.read()

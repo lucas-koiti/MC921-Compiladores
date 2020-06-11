@@ -1,4 +1,4 @@
-from uc_block import BlockGenerator
+
 
 class AnalyzeOptimaze(object):
 
@@ -6,16 +6,39 @@ class AnalyzeOptimaze(object):
         # CFG divididas por funcoes
         self.CFGs = cfg_list
 
-        # codigo optimal gerado (semelhante ao codegen)
+        # codigo optimal gerado no arquivo .opt pelo uc.py
+        self.optcode = ''
+
+        # codigo optimal gerado como tupla para ser interpretador no interpreter.py
         self.code = []
 
 
     def optmize(self): # classe de teste por enquanto, no futuro aplica as otimizacoes e gera codigo
-        """ chama suas funcoes aqui, semelhante ao que voce fazia no uc.py """
+        """ .realiza as otimizacoes no codigo alterando o valor no bloco
+            .atravessa cada bloco armazenando o novo codigo
+            .retorna o novo codigo em forma de string para emitir o arquivo .opt
+        """
 
         #self.reachingdef_anal() #RUDO
 
-        self.deadcode()
+        #self.deadcode()
+
+        # funcao que atravessa os blocos armazenando as intrucoes no self.optcode e self.code
+        self.opt_fileandcode()
+
+        return self.optcode
+    
+    def opt_fileandcode(self):
+        """ .acessa todos os blocos e sintetiza em um codigo
+            .armazena as tuplas no self.code para ser interpretado 
+            .retorna o codigo em forma de string, para ser escrito no .opt
+        """
+        for block in self.CFGs:
+            while block:
+                for instr in block.instructions:
+                    self.code.append(instr[1])
+                    self.optcode += f"{str(instr[1])}\n"
+                block = block.next_block
 
     #############################
     #   Dead Code Elimination   #  
