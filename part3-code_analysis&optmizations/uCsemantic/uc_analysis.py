@@ -25,8 +25,9 @@ class AnalyzeOptimaze(object):
             .para cada bloco analisa se ha deadcode
             .altera o codigo otimizando-o
         """
-        liveness = self.liveness_anal()
+        liveness, usedef = self.liveness_anal()
         print(liveness)
+        print(usedef)
 
         for i in range(1, len(self.CFGs)):
             firstblock = self.CFGs[i]
@@ -34,8 +35,9 @@ class AnalyzeOptimaze(object):
             while block:
                 for instr in block.instructions:
                     if 'store' in instr[1][0]:
-                        if instr[1][2] not in liveness[i][block.label][1]:
-                            print(instr)
+                        if instr[1][2] in usedef[i][block.label][1]:
+                            if instr[1][2] not in liveness[i][block.label][1]:
+                                print(instr)
 
                 block = block.next_block
     
@@ -108,6 +110,7 @@ class AnalyzeOptimaze(object):
     def liveness_anal(self):
         """ .funcao que realiza o liveness analysis
             .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os in's e out's 
+            .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os use e defs 
         """
         cfgs_inout = []
         # inicializa com um dict vazio, pois a primeira posicao é um bloco dos globais
@@ -127,7 +130,7 @@ class AnalyzeOptimaze(object):
             cfgs_inout.append(aux)
             in_out.clear()
     
-        return cfgs_inout
+        return cfgs_inout, cfgs_genkill
 
 
     def _worklist_live(self, cfg, cfg_genkill):
@@ -173,6 +176,9 @@ class AnalyzeOptimaze(object):
         for block in worklist:
             cfg_inout[block] = [[],[]]
 
+        #   inicia a lista [out] dos blocos de saida com todas as variáveis globais
+        # TODO
+
         #   enquanto houver blocos para serem analisados
         #   cfg_inout[n][0] -> in[n] e cfg_inout[n][1] -> out[n]
         #   cfg_genkill[n][0] -> gen[n] e cfg_genkill[n][1] -> kill[n]
@@ -182,7 +188,7 @@ class AnalyzeOptimaze(object):
             # old_in = in[n]
             old_in = cfg_inout[n][0]                
             # out[n] := Un'insucc[n] in[n1]
-            auxin = []                               
+            auxin = []                     
             for succ_in in succ[n]:
                 auxin = list(set(auxin) | set(cfg_inout[succ_in][0]))
             cfg_inout[n][1] = auxin.copy()
@@ -222,8 +228,10 @@ class AnalyzeOptimaze(object):
                         kill = self._getKill_live(instr)
                         if kill and (kill not in block_kill):
                             block_kill.append(kill)
+                            if kill in block_gen:
+                                block_gen.remove(kill)
                         gen = self._getGen_live(instr)
-                        if gen and (gen not in block_gen) and (gen not in block_kill):
+                        if gen and (gen not in block_gen):
                             block_gen.append(gen)
 
                     auxgen = block_gen.copy()
@@ -247,6 +255,7 @@ class AnalyzeOptimaze(object):
     def _getGen_live(self, instr):
         """ .recebe uma instrucao
             .retorna o GEN dela
+            .use
         """
         gen = None
 
@@ -264,6 +273,7 @@ class AnalyzeOptimaze(object):
     def _getKill_live(self, instr):
         """ .recebe uma instrucao
             .retorna o Kill dela
+            .def
         """
         kill = None
 
