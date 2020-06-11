@@ -295,7 +295,7 @@ class GenerateCode(NodeVisitor):
                     self.code.append(inst)
                     
             self.temps[node.name] = _tmp
-        return _tmp
+            return _tmp
 
     def visit_ArrayRef(self, node):
         if isinstance(node.name, uc_ast.ID):
@@ -418,7 +418,7 @@ class GenerateCode(NodeVisitor):
                 self.code += _store
     
                 # create a jump label to return
-                self.temps['label1'] = self.new_temp()
+                #self.temps['label1'] = self.new_temp()
             else:
                 # in @main we just need reserve temporaries to return and jump return
                 self.temps['return'] = self.new_temp()
@@ -729,11 +729,18 @@ class GenerateCode(NodeVisitor):
                 _target = self.temps.get('return')
                 inst = ('store_'+node.expr.type, _src, _target)
                 self.code.append(inst)
-            
-        inst = ('jump', self.temps['label1'])
-        self.code.append(inst)
-        inst = (self.temps['label1'][1:],)
-        self.code.append(inst)
+
+        if 'label1' in self.temps.keys():
+            inst = ('jump', self.temps['label1'])
+            self.code.append(inst)
+            inst = (self.temps['label1'][1:],)
+            self.code.append(inst)
+        else:
+            _retjump = self.new_temp()
+            inst = ('jump', _retjump)
+            self.code.append(inst)
+            inst = (_retjump[1:],)
+            self.code.append(inst)
         
         # if has a return value
         if node.expr:
