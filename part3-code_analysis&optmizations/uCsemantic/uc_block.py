@@ -59,7 +59,7 @@ class BlockGenerator(object):
 
         # segundo, separa as funcoes 
         funcs_code, leaders = self.brokein2funcs()
-        
+
         # terceiro, a partir do conjunto de instrucoes lider, determina os blocos existentes na funcao e os conecta gerando um CFG
         block_dict = {}
         i_func = 0
@@ -69,8 +69,8 @@ class BlockGenerator(object):
             current_block = start_block
             current_block.append(func[0])
             for inst in func[1:]:                               # percorre cada instrucao da funcao
-                if inst in leaders[i_func]:                     # se ela fizer parte de uma instrucao lider, inicia um novo bloco
-                    key = current_block.instructions[0][1][0]   # a chave para identificar o bloco é a label do temp usado na tupla e.g. ('1',)
+                if inst in leaders[i_func]:                     # se ela fizer parte de uma instrucao lider, inicia um novo bloco                    
+                    key = current_block.instructions[0][1][0]   # a chave para identificar o bloco é a linha
                     block_dict[key] = current_block             # salva o bloco corrente em um dict
                     new_block = Block(inst[0])                  # cria um novo bloco
                     current_block.next_block = new_block        # liga os blocos sequencialmente
@@ -80,7 +80,7 @@ class BlockGenerator(object):
             i_func += 1                                         # contador para acessar a lista de instrucoes lider da funcao correta
             key = current_block.instructions[0][1][0]
             block_dict[key] = current_block 
-                    
+            
             # conecta os blocos da CFG, criando uma lista ligada com os blocos em sequencia do codigo e com pointers para seus fluxos
             for block in block_dict.values():
                 # checa se a ultima instrucao do bloco eh um jump, cbranch ou qlq coisa
@@ -112,6 +112,7 @@ class BlockGenerator(object):
             # limpa a lista de blocos, pois todos ja estao ligados como "lista" (C kind of list)
             block_dict.clear()
         
+        
         # imprime as CFGS
         self.printCFG(printf)
 
@@ -132,6 +133,7 @@ class BlockGenerator(object):
             self.index += 1
             del self.code_3[0]
 
+        self.index = 1
         self.progCFG.append(globalblock)
 
 
@@ -148,15 +150,20 @@ class BlockGenerator(object):
         _leaders = []
         _leadaux = []
         line = self.index
-        for inst in self.code_3:
+
+
+        for i in range(len(self.code_3)):
+            inst = self.code_3[i]
+
             instr = [line, inst]
             line += 1
             _instraux.append(instr)
 
             if inst[0].isnumeric():
                 _leadaux.append(instr)
-            #  se encontrou return, terminou uma funcao, entao encerra o bloco atual
-            if 'return' in inst[0]:
+
+            #  se encontrou um define ou atingiu o fim, terminou uma funcao, entao encerra o bloco atual
+            if i == len(self.code_3)-1 or self.code_3[i+1][0] == 'define':
                 line = 1
                 _aux1 = _instraux.copy()
                 _func.append(_aux1)
@@ -164,7 +171,7 @@ class BlockGenerator(object):
                 _aux2 = _leadaux.copy()
                 _leaders.append(_aux2)
                 _leadaux.clear()
-
+        
         return _func, _leaders
 
  # itera sobre todos os blocos imprimindo-os
