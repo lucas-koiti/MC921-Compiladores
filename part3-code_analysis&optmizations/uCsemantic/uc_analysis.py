@@ -3,7 +3,6 @@ class AnalyzeOptimaze:
     def __init__(self, cfg_list):
         # CFG divididas por funcoes
         self.CFGs = cfg_list
-        self.cfg_gen_kill = {}
         self.blocks_amt = {}
         # lista de dicionarios para detectar conversão de valores no reching definitions
         self.changed = []
@@ -19,16 +18,19 @@ class AnalyzeOptimaze:
             .atravessa cada bloco armazenando o novo codigo
             .retorna o novo codigo em forma de string para emitir o arquivo .opt
         """
+        reach_gen_kill = self.get_gen_kill()
 
-        #self.reachingdef_anal() #RUDO
+        # for cfg_id, block in enumerate(self.CFGs):
+        #     self.reachingDefinitions(block, reach_gen_kill[cfg_id])
 
         #self.deadcode()
 
         # funcao que atravessa os blocos armazenando as intrucoes no self.optcode e self.code
-        self.opt_fileandcode()
+        # self.opt_fileandcode()
 
         return self.optcode
-    
+
+
     def opt_fileandcode(self):
         """ .acessa todos os blocos e sintetiza em um codigo
             .armazena as tuplas no self.code para ser interpretado 
@@ -41,41 +43,12 @@ class AnalyzeOptimaze:
                     self.optcode += f"{str(instr[1])}\n"
                 block = block.next_block
 
-    #############################
-    #   Dead Code Elimination   #  
-    #############################
-    def deadcode(self):
-        """ .realiza a liveness analysis
-            .para cada bloco analisa se ha deadcode
-            .altera o codigo otimizando-o
-        """
-        liveness, usedef = self.liveness_anal()
-        print(liveness)
-        print(usedef)
-
-        for i in range(1, len(self.CFGs)):
-            firstblock = self.CFGs[i]
-            block = firstblock
-            while block:
-                for instr in block.instructions:
-                    if 'store' in instr[1][0]:
-                        if instr[1][2] in usedef[i][block.label][1]:
-                            if instr[1][2] not in liveness[i][block.label][1]:
-                                print(instr)
-
-                block = block.next_block
-    
     ############################
     #   Reaching Definitions   #  
     ############################
 
     def get_gen_kill(self):
-        # defs é um dicionario variavel : lista de linhas onde a variavel recebe atribuição
-        defs = {}
-        # gen é um array com o tamanho da quantidade de linhas do bloco, onde há atribuição ele salva a variavel que foi atualiuzada
-        gen = []
-        # kill é todas as defs de alguma variavel menos a que foi atribuida na linha sendo itarada
-        kill = []
+        cfg_gen_kill = {}
         # itera todas cfgs e obtem o gen[]
         for cfg_count, block in enumerate(self.CFGs, 0):
             # defs é um dicionario VARIAVEL : LISTA DE LINHAS onde a variavel recebe atribuição
@@ -147,8 +120,9 @@ class AnalyzeOptimaze:
                 print(f"\tgen : {gens[block]}")
                 print(f"\tkill : {kills[block]}")
             # guarda gen e kill relativo aos cfgs
-            self.cfg_gen_kill[cfg_count] = (gens, kills)
-        self.reachingDefinitions()
+            cfg_gen_kill[cfg_count] = {'gen' : gens, 'kill' : kills}
+
+            return cfg_gen_kill
 
 
     def reachingDefinitions(self, block_head, gen_kill):
@@ -365,6 +339,29 @@ class AnalyzeOptimaze:
 
         return kill
 
+    #############################
+    #   Dead Code Elimination   #
+    #############################
+    def deadcode(self):
+        """ .realiza a liveness analysis
+            .para cada bloco analisa se ha deadcode
+            .altera o codigo otimizando-o
+        """
+        liveness, usedef = self.liveness_anal()
+        print(liveness)
+        print(usedef)
+
+        for i in range(1, len(self.CFGs)):
+            firstblock = self.CFGs[i]
+            block = firstblock
+            while block:
+                for instr in block.instructions:
+                    if 'store' in instr[1][0]:
+                        if instr[1][2] in usedef[i][block.label][1]:
+                            if instr[1][2] not in liveness[i][block.label][1]:
+                                print(instr)
+
+                block = block.next_block
 
     """ Available Expressions """
 
