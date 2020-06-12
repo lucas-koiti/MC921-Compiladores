@@ -88,46 +88,80 @@ class AnalyzeOptimaze:
         self.reachingDefinitions()
 
 
-    def reachingDefinitions(self):
+    def reachingDefinitions(self, block_head, gen_kill):
         """ Função que executa a analise de reaching defintions nas CFGs obtidas.
         """
-        RD_cfg = {}
-        for cfg in self.changed:
-            print(cfg)
-        for cfg_id, block in enumerate(self.CFGs):
-            _in = {}
-            _out = {}
-            changed = {}
-            while block and all(changed.values()):
-                block_id = block.label if isinstance(block.label, int) else 0
-                # 0 gen - 1 kill
-                if self.cfg_gen_kill[cfg_id][0] and block_id in _in.keys():
-                    block_gen = set(self.cfg_gen_kill[cfg_id][0][block_id])
-                    block_in = set(_in[block_id])
-                    block_kill = set(self.cfg_gen_kill[cfg_id][1][block_id])
-                    sub_set = block_in.difference(block_kill)
-                    _out[block_id] = block_gen.union(sub_set)
+        # inicializa uma variavel com todos os blocos para facilitar o acesso
+        blocks = {}
+        changed = []
+        _out = {}
+        _in = []
+        while block_head:
+            blocks[block_head.label] = block_head
+            changed.append(block_head)
 
-                if block.predecessors:
-                    for pred_block in block.predecessors:
-                        # _in[block_id] = 
-                        pred_id = pred_block.label if isinstance(pred_block.label, int) else 0
-                        if pred_id in _out.keys():
-                            if len(_in[block_id]) == 0:
-                                _in[block_id] = _out[pred_id]
-                            else:
-                                pred_out = set(_out[pred_id])
-                                block_in = set(_in[block_id])
-                                _in[block_id] = list(block_in.union(pred_out))
-                else:
-                    _in[block_id] = None
+        while changed:
+            block = changed.pop()
+            _in[block.label] = []
+            _out[block.label] = []
+            block = block.next_block
 
-                block = block.next_block
-            RD_cfg[cfg_id] = (_in, _out)
+            for pred in block.predecessors:
+                in_set = set(_in[block.label])
+                out_set = set(_out[pred.label])
+                _in[block.label] = list(in_set.union(out_set))
 
-        print(f"in: {RD_cfg[0]}")
-        print(f"out: {RD_cfg[1]}")
-        pass
+            old_out = _out[block.label]
+
+            gen_set = set(gen_kill[0][block.label])
+            kill_set = set(gen_kill[1][block_head])
+            in_set = set(_in[block.label])
+            _out[block.label] = gen_set.union(in_set.difference(kill_set))
+
+            if out_old != _out[block.label]:
+                for suc in block.
+
+
+
+
+
+        # RD_cfg = {}
+        # for cfg in self.changed:
+        #     print(cfg)
+        # for cfg_id, block in enumerate(self.CFGs):
+        #     _in = {}
+        #     _out = {}
+        #     changed = {}
+        #     while block and all(changed.values()):
+        #         block_id = block.label if isinstance(block.label, int) else 0
+        #         # 0 gen - 1 kill
+        #         if self.cfg_gen_kill[cfg_id][0] and block_id in _in.keys():
+        #             block_gen = set(self.cfg_gen_kill[cfg_id][0][block_id])
+        #             block_in = set(_in[block_id])
+        #             block_kill = set(self.cfg_gen_kill[cfg_id][1][block_id])
+        #             sub_set = block_in.difference(block_kill)
+        #             _out[block_id] = block_gen.union(sub_set)
+        #
+        #         if block.predecessors:
+        #             for pred_block in block.predecessors:
+        #                 # _in[block_id] =
+        #                 pred_id = pred_block.label if isinstance(pred_block.label, int) else 0
+        #                 if pred_id in _out.keys():
+        #                     if len(_in[block_id]) == 0:
+        #                         _in[block_id] = _out[pred_id]
+        #                     else:
+        #                         pred_out = set(_out[pred_id])
+        #                         block_in = set(_in[block_id])
+        #                         _in[block_id] = list(block_in.union(pred_out))
+        #         else:
+        #             _in[block_id] = None
+        #
+        #         block = block.next_block
+        #     RD_cfg[cfg_id] = (_in, _out)
+        #
+        # print(f"in: {RD_cfg[0]}")
+        # print(f"out: {RD_cfg[1]}")
+        # pass
 
     """ Liveness Analysis """
 
