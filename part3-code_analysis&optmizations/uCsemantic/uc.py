@@ -117,13 +117,10 @@ class Compiler:
     """ This object encapsulates the compiler and serves as a
         facade interface for the compiler itself.
     """
-    code_3 = None
-
 
     def __init__(self):
         self.total_errors = 0
         self.total_warnings = 0
-
 
     def _parse(self, susy, ast_file, debug):
         """ Parses the source code. If ast_file != None,
@@ -151,44 +148,64 @@ class Compiler:
         """ Generate uCIR Code for the decorated AST. """
         self.gen = GenerateCode()
         self.gen.visit(self.ast)
-        self.code_3 = self.gen.code
-        # print(f"code ###\n{self.gen.code}\n###")
-        # AQUI O CODIGO É GERADO
         self.gencode = self.gen.code
         _str = ''
         if not susy and ir_file is not None:
             for _code in self.gencode:
                 _str += f"{_code}\n"
-            ir_file.write(_str)
-            
+            ir_file.write(_str)  
+        if cfg:
+            self.blocks = BlockGenerator(self.gen.code)
+            self.progcfg = self.blocks.get_blocks()
+    
+    def _opt(self, susy, opt_file, cfg, debug):
+        if cfg:
+            self.opt = AnalyzeOptimaze(self.progcfg)
+        else:
+            self.blocks = BlockGenerator(self.gen.code)
+            self.progcfg = self.blocks.get_blocks(False)
+            self.opt = AnalyzeOptimaze(self.progcfg)
+        _code = self.opt.optmize()
+        self.optcode = self.opt.code
+        if not susy and opt_file is not None:
+            opt_file.write(_code)
 
-    def _do_compile(self, susy, ast_file, ir_file, cfg, debug):
+    def _do_compile(self, susy, ast_file, ir_file, opt_file, cfg, opt, debug):
         """ Compiles the code to the given file object. """
         self._parse(susy, ast_file, debug)
         if not errors_reported():
             self._sema(susy, ast_file)
         if not errors_reported():
             self._gencode(susy, ir_file, cfg)
+            if opt:
+                self._opt(susy, opt_file, cfg, debug)
 
 
-    def compile(self, code, susy, ast_file, ir_file, cfg, run_ir, debug):
+    def compile(self, code, susy, ast_file, ir_file, opt_file, cfg, opt, run_ir, debug):
         """ Compiles the given code string """
         self.code = code
         with subscribe_errors(lambda msg: sys.stderr.write(msg+"\n")):
-            self._do_compile(susy, ast_file, ir_file, cfg, debug)
+            self._do_compile(susy, ast_file, ir_file, opt_file, cfg, opt, debug)
             if errors_reported():
                 sys.stderr.write("{} error(s) encountered.".format(errors_reported()))
-            elif run_ir:
-                self.vm = Interpreter()
-                self.vm.run(self.gencode)
-        return 0, self.code_3
+            else:
+                if opt:
+                    """self.speedup = len(self.gencode) / len(self.optcode)
+                    sys.stderr.write("speedup = %.2f\n" % self.speedup) TODO"""
+                if run_ir and not cfg:
+                    self.vm = Interpreter()
+                    if opt:
+                        self.vm.run(self.optcode)
+                    else:
+                        self.vm.run(self.gencode)
+        return 0
 
 
 def run_compiler():
     """ Runs the command-line compiler. """
 
     if len(sys.argv) < 2:
-        print("Usage: ./uc <source-file> [-at-susy] [-no-ast] [-no-ir] [-no-run] [-debug]")
+        print("Usage: ./uc <source-file> [-at-susy] [-no-ast] [-no-ir] [-no-run] [-cfg] [-opt] [-debug]")
         sys.exit(1)
 
     emit_ast = True
@@ -196,7 +213,9 @@ def run_compiler():
     run_ir = True
     susy = False
     debug = False
-    cfg = None
+    cfg = False
+    opt = False
+    debug = False
 
     params = sys.argv[1:]
     files = sys.argv[1:]
@@ -213,6 +232,8 @@ def run_compiler():
                 run_ir = False
             elif param == '-cfg':
                 cfg = True
+            elif param == '-opt':
+                opt = True
             elif param == '-debug':
                 debug = True
             else:
@@ -242,19 +263,19 @@ def run_compiler():
             ir_file = open(ir_filename, 'w')
             open_files.append(ir_file)
 
+        opt_file = None
+        if opt and not susy:
+            opt_filename = source_filename[:-3] + '.opt'
+            print("Outputting the optimized uCIR to %s." % opt_filename)
+            opt_file = open(opt_filename, 'w')
+            open_files.append(opt_file)
+
         source = open(source_filename, 'r')
         code = source.read()
         source.close()
-        # retorna o valor padrao e a lista de codigos
-        retval, code_3 = Compiler().compile(code, susy, ast_file, ir_file, run_ir, cfg, debug)
         
-        # passa os codigos de 3 endereços para obter os blocos
-        if code_3:
-            blocks = BlockGenerator(code_3)
-            blocks.get_blocks(False)
-            anal = AnalyzeOptimaze(blocks.progCFG)
-            anal.get_gen_kill()
-            # anal.reachingDefinitions()
+        retval = Compiler().compile(code, susy, ast_file, ir_file, opt_file, cfg, opt, run_ir, debug)
+
         for f in open_files:
             f.close()
         if retval != 0:

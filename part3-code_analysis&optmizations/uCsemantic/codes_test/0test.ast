@@ -1,0 +1,36 @@
+Program: 
+    FuncDef: 
+        Type: ['int']   @ 1:1
+        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7f70374528e0>,  type=None  )
+            FuncDecl: 
+                VarDecl: 
+                    Type: ['int']   @ 1:1
+        Compound:    @ 1:1
+            Decl: ID(name='x',  coord=<uc_ast.Coord object at 0x7f7037452ac0>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 2:5
+                Constant: int, 2   @ 2:12
+            Decl: ID(name='y',  coord=<uc_ast.Coord object at 0x7f70373d46a0>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 2:5
+            Decl: ID(name='z',  coord=<uc_ast.Coord object at 0x7f7037452b20>,  type=None  )
+                VarDecl: 
+                    Type: ['int']   @ 2:5
+            Assignment: =   @ 3:5
+                ID: y   @ 3:5
+                UnaryOp: ++   @ 3:11
+                    ID: x   @ 3:11
+            Assignment: =   @ 4:5
+                ID: z   @ 4:5
+                UnaryOp: p++   @ 4:9
+                    ID: x   @ 4:9
+            Assert:    @ 5:5
+                BinaryOp: &&   @ 5:12
+                    BinaryOp: ==   @ 5:12
+                        ID: y   @ 5:12
+                        Constant: int, 3   @ 5:17
+                    BinaryOp: ==   @ 5:22
+                        ID: z   @ 5:22
+                        Constant: int, 3   @ 5:27
+            Return:    @ 6:5
+                Constant: int, 0   @ 6:12
