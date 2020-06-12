@@ -20,8 +20,8 @@ class AnalyzeOptimaze:
         """
         reach_gen_kill = self.get_gen_kill()
 
-        # for cfg_id, block in enumerate(self.CFGs):
-        #     self.reachingDefinitions(block, reach_gen_kill[cfg_id])
+        for cfg_id, block in enumerate(self.CFGs):
+            self.reachingDefinitions(block, reach_gen_kill[cfg_id]['gen'], reach_gen_kill[cfg_id]['kill'] )
 
         #self.deadcode()
 
@@ -125,38 +125,53 @@ class AnalyzeOptimaze:
         return cfg_gen_kill
 
 
-    def reachingDefinitions(self, block_head, gen_kill):
+    def reachingDefinitions(self, block_head, gen, kill):
         """ Função que executa a analise de reaching defintions nas CFGs obtidas.
         """
         # inicializa uma variavel com todos os blocos para facilitar o acesso
         blocks = {}
+        successors = {}
         changed = []
         _out = {}
-        _in = []
+        _in = {}
+        # monta dicionario com todos os blocos
         while block_head:
             blocks[block_head.label] = block_head
             changed.append(block_head)
+            successors[block_head.label] = []
+            # successors
+            if block_head.branch:
+                successors[block_head.label].append(block_head.branch)
+            if block_head.truelabel:
+                successors[block_head.label].append(block_head.truelabel)
+            if block_head.falselabel:
+                successors[block_head.label].append(block_head.falselabel)
+            # itera para proximo bloco
+            block_head = block_head.next_block
 
         while changed:
             block = changed.pop()
-            _in[block.label] = []
-            _out[block.label] = []
-            block = block.next_block
+            block_id = block.label if isinstance(block.label, int) else 0
+            _in[block_id] = []
+            _out[block_id] = []
 
             for pred in block.predecessors:
-                in_set = set(_in[block.label])
-                out_set = set(_out[pred.label])
-                _in[block.label] = list(in_set.union(out_set))
+                in_set = set(_in[block_id])
+                pred_id = pred.label if isinstance(pred.label, int) else 0
+                out_set = set(_out[pred_id])
+                _in[block_id] = list(in_set.union(out_set))
 
-            old_out = _out[block.label]
+            old_out = _out[block_id]
 
-            gen_set = set(gen_kill[0][block.label])
-            kill_set = set(gen_kill[1][block_head])
-            in_set = set(_in[block.label])
-            _out[block.label] = gen_set.union(in_set.difference(kill_set))
+            gen_set = set(gen[block_id])
+            kill_set = set(kill[block_id])
+            in_set = set(_in[block_id])
+            _out[block_id] = gen_set.union(in_set.difference(kill_set))
             # succesor
-            # if out_old != _out[block.label]:
-            #     for suc in block.
+            if old_out != _out[block_id]:
+                for suc in successors[block_id]:
+                    changed.append(suc)
+
 
     #########################
     #   Liveness Analysis   #  
