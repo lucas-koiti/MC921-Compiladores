@@ -122,7 +122,7 @@ class AnalyzeOptimaze:
             # guarda gen e kill relativo aos cfgs
             cfg_gen_kill[cfg_count] = {'gen' : gens, 'kill' : kills}
 
-            return cfg_gen_kill
+        return cfg_gen_kill
 
 
     def reachingDefinitions(self, block_head, gen_kill):
