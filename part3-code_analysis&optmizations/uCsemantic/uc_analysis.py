@@ -21,7 +21,11 @@ class AnalyzeOptimaze:
         reach_gen_kill = self.get_gen_kill()
 
         for cfg_id, block in enumerate(self.CFGs):
-            self.reachingDefinitions(block, reach_gen_kill[cfg_id]['gen'], reach_gen_kill[cfg_id]['kill'] )
+            gen_RD = reach_gen_kill[cfg_id]['gen']
+            kill_RD = reach_gen_kill[cfg_id]['kill']
+            # TODO verificar se gen e kill nulos garantem in e out nulos
+            if gen_RD and kill_RD:
+                self.reachingDefinitions(block, gen_RD, kill_RD)
 
         #self.deadcode()
 
@@ -136,42 +140,67 @@ class AnalyzeOptimaze:
         _in = {}
         # monta dicionario com todos os blocos
         while block_head:
-            blocks[block_head.label] = block_head
+            block_id = block_head.label if isinstance(block_head.label, int) else 0
+            blocks[block_id] = block_head
             changed.append(block_head)
-            successors[block_head.label] = []
+            successors[block_id] = []
+            _in[block_id] = {}
+            _out[block_id] = {}
+
             # successors
             if block_head.branch:
-                successors[block_head.label].append(block_head.branch)
+                successors[block_id].append(block_head.branch)
             if block_head.truelabel:
-                successors[block_head.label].append(block_head.truelabel)
+                successors[block_id].append(block_head.truelabel)
             if block_head.falselabel:
-                successors[block_head.label].append(block_head.falselabel)
+                successors[block_id].append(block_head.falselabel)
             # itera para proximo bloco
             block_head = block_head.next_block
 
         while changed:
             block = changed.pop()
             block_id = block.label if isinstance(block.label, int) else 0
-            _in[block_id] = []
-            _out[block_id] = []
 
             for pred in block.predecessors:
-                in_set = set(_in[block_id])
                 pred_id = pred.label if isinstance(pred.label, int) else 0
-                out_set = set(_out[pred_id])
-                _in[block_id] = list(in_set.union(out_set))
+                same_var = _in[block_id].keys() & _out[pred_id].keys()
+                if same_var:
+                    for var in same_var:
+                        print("oi")
+                        in_set = set(_in[block_id][var])
+                        out_set = set(_out[pred_id][var])
+                        _in[block_id][var] = list(in_set.union(out_set))
 
             old_out = _out[block_id]
 
-            gen_set = set(gen[block_id])
-            kill_set = set(kill[block_id])
-            in_set = set(_in[block_id])
-            _out[block_id] = gen_set.union(in_set.difference(kill_set))
+            # gen_set =   else set()
+            # if block_id in gen.keys():
+            #     for var in gen[block_id].keys():
+            #         val_list = list(gen[block_id][var])
+            # kill_set = set(kill[block_id]) if block_id in kill.keys() else set()
+
+            # extrai quais variaveis sao comuns ao kill e gen
+            same_var = kill[block_id].keys() & gen[block_id].keys()
+
+            if same_var:
+                for var in same_var:
+                    # gen é uma variavel, logo precisa ser posto em uma lista
+                    gen_set = set([gen[block_id][var]])
+                    kill_set = set(kill[block_id][var])
+                    in_set = set(_in[block_id][var]) if var in _in[block_id] else set()
+                    if var in _out[block_id].keys():
+                        _out[block_id][var] = list(gen_set.union(in_set.difference(kill_set)))
+                    else:
+                        _out[block_id] = {var: list(gen_set.union(in_set.difference(kill_set)))}
+            # in_set = set(_in[block_id])
+            # _out[block_id] = gen_set.union(in_set.difference(kill_set))
             # succesor
             if old_out != _out[block_id]:
-                for suc in successors[block_id]:
-                    changed.append(suc)
+                if block_id in successors.keys():
+                    for suc in successors[block_id]:
+                        changed.append(suc)
 
+        print(f"in {_in} out {_out}")
 
     #########################
     #   Liveness Analysis   #  
