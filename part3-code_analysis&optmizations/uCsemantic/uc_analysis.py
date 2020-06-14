@@ -3,9 +3,6 @@ class AnalyzeOptimaze:
     def __init__(self, cfg_list):
         # CFG divididas por funcoes
         self.CFGs = cfg_list
-        self.blocks_amt = {}
-        # lista de dicionarios para detectar conversão de valores no reching definitions
-        self.changed = []
         # codigo optimal gerado no arquivo .opt pelo uc.py
         self.optcode = ''
 
@@ -18,15 +15,15 @@ class AnalyzeOptimaze:
             .atravessa cada bloco armazenando o novo codigo
             .retorna o novo codigo em forma de string para emitir o arquivo .opt
         """
-        reach_gen_kill = self.get_gen_kill()
-
+        reach_gen_kill = self.get_gen_kill_RD()
+        RD_in_out = {}
         for cfg_id, block in enumerate(self.CFGs):
-            gen_RD = reach_gen_kill[cfg_id]['gen']
-            kill_RD = reach_gen_kill[cfg_id]['kill']
+            RD_gen = reach_gen_kill[cfg_id]['gen']
+            RD_kill = reach_gen_kill[cfg_id]['kill']
             # TODO verificar se gen e kill nulos garantem in e out nulos
             print(f"\t=== CFG {cfg_id} ===")
-            if gen_RD and kill_RD:
-                self.reachingDefinitions(block, gen_RD, kill_RD)
+            if RD_gen and RD_kill:
+                RD_in_out[cfg_id] = self.reachingDefinitions(block, RD_gen, RD_kill)
 
         #self.deadcode()
 
@@ -52,17 +49,19 @@ class AnalyzeOptimaze:
     #   Reaching Definitions   #
     ############################
 
-    def get_gen_kill(self):
+    def get_gen_kill_RD(self):
+        """
+            obtenca dos dicionarios gen e kill para REACHING DEFINITIONS
+        """
         cfg_gen_kill = {}
         # itera todas cfgs e obtem o gen[]
         for cfg_count, block in enumerate(self.CFGs, 0):
-            # defs é um dicionario VARIAVEL : LISTA DE LINHAS onde a variavel recebe atribuição
+            # defs é um dicionario com todas as variaveis declaradas e sua de linhas onde foram declaradas
             defs = {}
             # gen é um array com o tamanho da quantidade de linhas do bloco, onde há atribuição ele salva a variavel que foi atualiuzada
             gens = {}
             # kill é todas as defs de alguma variavel menos a que foi atribuida na linha sendo itarada
             kills = {}
-            self.changed.append({})
             self.blocks_amt[cfg_count] = 0
             print(f"\n---------CFG {cfg_count}----------")
             while block:
@@ -75,9 +74,6 @@ class AnalyzeOptimaze:
                     print()
                 # bloco de globais é referido pelo indice 0
                 block_id = block.label if isinstance(block.label, int) else 0
-                # inicializa dicioanrio auxiliar para reaching definitins
-                if block_id not in self.changed[cfg_count].keys():
-                    self.changed[cfg_count][block_id] = False
                 # dicionario para captacao dos gens
                 gen_block = {}
                 # e todas suas instrucoes
@@ -93,7 +89,7 @@ class AnalyzeOptimaze:
                             defs[attr_var].append(inst[0])
                         else:
                             defs[attr_var] = [inst[0]]
-                    # sava o gen do bloco
+                    # salva o gen do bloco
                     gens[block_id] = gen_block
                 # obtem proximo bloco
                 block = block.next_block
@@ -201,6 +197,8 @@ class AnalyzeOptimaze:
         for blockin, blockout in zip(_in.keys(), _out.keys()):
             print(f"{blockin}\t{_in[blockin]} \t\t {_out[blockout]}")
 
+        return {"in": _in, "out" : _out}
+
     #########################
     #   Liveness Analysis   #
     #########################
@@ -265,7 +263,7 @@ class AnalyzeOptimaze:
             # predecessors
             for p in block.predecessors:
                 predecessors.append(p.label)
-            pred[block.label] =  predecessors.copy()
+            pred[block.label] = predecessors.copy()
             predecessors.clear()
 
             block = block.next_block
