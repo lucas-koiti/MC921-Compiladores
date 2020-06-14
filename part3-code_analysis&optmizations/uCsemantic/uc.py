@@ -190,8 +190,8 @@ class Compiler:
                 sys.stderr.write("{} error(s) encountered.".format(errors_reported()))
             else:
                 if opt:
-                    """self.speedup = len(self.gencode) / len(self.optcode)
-                    sys.stderr.write("speedup = %.2f\n" % self.speedup) TODO"""
+                    self.speedup = len(self.gencode) / len(self.optcode)
+                    sys.stderr.write("speedup = %.2f\n" % self.speedup)
                 if run_ir and not cfg:
                     self.vm = Interpreter()
                     if opt:
