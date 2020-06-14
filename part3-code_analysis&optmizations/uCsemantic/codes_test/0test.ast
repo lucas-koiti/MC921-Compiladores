@@ -1,36 +1,77 @@
 Program: 
     FuncDef: 
         Type: ['int']   @ 1:1
-        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7f70374528e0>,  type=None  )
+        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7fc5fc5c78e0>,  type=None  )
             FuncDecl: 
                 VarDecl: 
                     Type: ['int']   @ 1:1
         Compound:    @ 1:1
-            Decl: ID(name='x',  coord=<uc_ast.Coord object at 0x7f7037452ac0>,  type=None  )
+            Decl: ID(name='v',  coord=<uc_ast.Coord object at 0x7fc5fc5c7ac0>,  type=None  )
+                ArrayDecl: 
+                    VarDecl: 
+                        Type: ['int']   @ 2:5
+                InitList:    @ 2:16
+                    Constant: int, 1   @ 2:16
+                    Constant: int, 2   @ 2:19
+                    Constant: int, 3   @ 2:22
+                    Constant: int, 4   @ 2:25
+                    Constant: int, 5   @ 2:28
+            Decl: ID(name='c',  coord=<uc_ast.Coord object at 0x7fc5fc50b910>,  type=None  )
+                ArrayDecl: 
+                    VarDecl: 
+                        Type: ['char']   @ 3:5
+                Constant: string, "xpto"   @ 3:16
+            Decl: ID(name='w',  coord=<uc_ast.Coord object at 0x7fc5fc50b9d0>,  type=None  )
+                ArrayDecl: 
+                    VarDecl: 
+                        Type: ['char']   @ 4:5
+                    Constant: int, 4   @ 4:12
+            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7fc5fc50ba90>,  type=None  )
                 VarDecl: 
-                    Type: ['int']   @ 2:5
-                Constant: int, 2   @ 2:12
-            Decl: ID(name='y',  coord=<uc_ast.Coord object at 0x7f70373d46a0>,  type=None  )
+                    Type: ['int']   @ 5:5
+                Constant: int, 2   @ 5:13
+            Decl: ID(name='j',  coord=<uc_ast.Coord object at 0x7fc5fc50b580>,  type=None  )
                 VarDecl: 
-                    Type: ['int']   @ 2:5
-            Decl: ID(name='z',  coord=<uc_ast.Coord object at 0x7f7037452b20>,  type=None  )
+                    Type: ['int']   @ 5:5
+                Constant: int, 3   @ 5:20
+            Decl: ID(name='k',  coord=<uc_ast.Coord object at 0x7fc5fc50ba60>,  type=None  )
                 VarDecl: 
-                    Type: ['int']   @ 2:5
-            Assignment: =   @ 3:5
-                ID: y   @ 3:5
-                UnaryOp: ++   @ 3:11
-                    ID: x   @ 3:11
-            Assignment: =   @ 4:5
-                ID: z   @ 4:5
-                UnaryOp: p++   @ 4:9
-                    ID: x   @ 4:9
-            Assert:    @ 5:5
-                BinaryOp: &&   @ 5:12
-                    BinaryOp: ==   @ 5:12
-                        ID: y   @ 5:12
-                        Constant: int, 3   @ 5:17
-                    BinaryOp: ==   @ 5:22
-                        ID: z   @ 5:22
-                        Constant: int, 3   @ 5:27
-            Return:    @ 6:5
-                Constant: int, 0   @ 6:12
+                    Type: ['int']   @ 5:5
+                Constant: int, 4   @ 5:27
+            Assignment: =   @ 6:5
+                ArrayRef:    @ 6:5
+                    ID: w   @ 6:5
+                    Constant: int, 2   @ 6:7
+                ArrayRef:    @ 6:12
+                    ID: c   @ 6:12
+                    Constant: int, 1   @ 6:14
+            Assignment: =   @ 7:5
+                ArrayRef:    @ 7:5
+                    ID: v   @ 7:5
+                    ID: i   @ 7:7
+                BinaryOp: +   @ 7:12
+                    BinaryOp: +   @ 7:12
+                        ID: i   @ 7:12
+                        ID: j   @ 7:16
+                    ID: k   @ 7:20
+            Assignment: =   @ 8:5
+                ID: j   @ 8:5
+                BinaryOp: -   @ 8:9
+                    ID: j   @ 8:9
+                    Constant: int, 2   @ 8:13
+            Assert:    @ 9:5
+                BinaryOp: &&   @ 9:12
+                    BinaryOp: ==   @ 9:12
+                        ArrayRef:    @ 9:12
+                            ID: w   @ 9:12
+                            ID: i   @ 9:14
+                        ArrayRef:    @ 9:20
+                            ID: c   @ 9:20
+                            ID: j   @ 9:22
+                    BinaryOp: ==   @ 9:28
+                        ArrayRef:    @ 9:28
+                            ID: v   @ 9:28
+                            ID: i   @ 9:30
+                        Constant: int, 9   @ 9:36
+            Return:    @ 10:5
+                Constant: int, 0   @ 10:12
