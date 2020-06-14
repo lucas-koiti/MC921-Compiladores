@@ -15,7 +15,7 @@ class Block(object):
         # Link to the next block   
         self.next_block = None
 
-        # Identifies if is a basic (0) or conditional (1: cbranch | 2: jump) block (-1 is the final block)
+        # Identifies if is a basic (0) or conditional (1: cbranch | 2: jump) block (-1 is the final block(return))
         self.kind = None
 
         # Basic Block
@@ -41,7 +41,7 @@ class BlockGenerator(object):
 
     def __init__(self, code_3):
         # codigo em 3 enderecos 
-        self.code_3 = code_3
+        self.code_3 = code_3.copy()
         # ponteiros para os CFG's de cada funcao/global contida no codigo
         self.progCFG = []
         # instruction index
@@ -104,7 +104,8 @@ class BlockGenerator(object):
                     else:
                         block.kind = 0
                         block.branch = block.next_block
-                        block.next_block.predecessors.append(block)
+                        if block.next_block:
+                            block.next_block.predecessors.append(block)
                                        
             # salva o start_block como cabeça da lista de blocos da funcao analisada
             self.progCFG.append(start_block)
@@ -193,7 +194,8 @@ class BlockGenerator(object):
                     if block_pointer.kind == 0:
                         for block in block_pointer.predecessors:
                             print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
-                        print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
+                        if block_pointer.branch:
+                            print("\t NEXT BLOCK : " + "bloco " + str(block_pointer.branch.label))
                     elif block_pointer.kind == 1:
                         for block in block_pointer.predecessors:
                             print("\tPREDECESSOR BLOCK: " + "bloco " + str(block.label))
