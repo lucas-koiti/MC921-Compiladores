@@ -190,7 +190,10 @@ class Compiler:
                 sys.stderr.write("{} error(s) encountered.".format(errors_reported()))
             else:
                 if opt:
-                    self.speedup = len(self.gencode) / len(self.optcode)
+                    if len(self.optcode) > 0:
+                        self.speedup = len(self.gencode) / len(self.optcode)
+                    else:
+                        print("[WARNING] O optcode está vazio")
                     sys.stderr.write("speedup = %.2f\n" % self.speedup)
                 if run_ir and not cfg:
                     self.vm = Interpreter()
