@@ -24,6 +24,7 @@ class AnalyzeOptimaze:
             gen_RD = reach_gen_kill[cfg_id]['gen']
             kill_RD = reach_gen_kill[cfg_id]['kill']
             # TODO verificar se gen e kill nulos garantem in e out nulos
+            print(f"\t=== CFG {cfg_id} ===")
             if gen_RD and kill_RD:
                 self.reachingDefinitions(block, gen_RD, kill_RD)
 
@@ -37,7 +38,7 @@ class AnalyzeOptimaze:
 
     def opt_fileandcode(self):
         """ .acessa todos os blocos e sintetiza em um codigo
-            .armazena as tuplas no self.code para ser interpretado 
+            .armazena as tuplas no self.code para ser interpretado
             .retorna o codigo em forma de string, para ser escrito no .opt
         """
         for block in self.CFGs:
@@ -48,7 +49,7 @@ class AnalyzeOptimaze:
                 block = block.next_block
 
     ############################
-    #   Reaching Definitions   #  
+    #   Reaching Definitions   #
     ############################
 
     def get_gen_kill(self):
@@ -147,41 +148,39 @@ class AnalyzeOptimaze:
             _in[block_id] = {}
             _out[block_id] = {}
 
-            # successors
+            # obtem successors
             if block_head.branch:
                 successors[block_id].append(block_head.branch)
             if block_head.truelabel:
                 successors[block_id].append(block_head.truelabel)
             if block_head.falselabel:
                 successors[block_id].append(block_head.falselabel)
-            # itera para proximo bloco
             block_head = block_head.next_block
 
+        # enquanto houver mudança nos valores
         while changed:
+            # obtem bloco a ser iterado
             block = changed.pop()
             block_id = block.label if isinstance(block.label, int) else 0
-
+            # calcula novo in
+            new_in = {}
             for pred in block.predecessors:
                 pred_id = pred.label if isinstance(pred.label, int) else 0
-                same_var = _in[block_id].keys() & _out[pred_id].keys()
-                if same_var:
-                    for var in same_var:
-                        print("oi")
-                        in_set = set(_in[block_id][var])
-                        out_set = set(_out[pred_id][var])
-                        _in[block_id][var] = list(in_set.union(out_set))
+                # same_var = _in[block_id].keys() & _out[pred_id].keys()
+                for var in _out[pred_id].keys():
+                    if var in new_in.keys():
+                        new_in[var].append(_out[pred_id][var])
+                    else:
+                        new_in[var] = _out[pred_id][var]
+            # registra novo in
+            _in[block_id] = new_in
 
+            # salva out antigo para checagem de mudança
             old_out = _out[block_id]
-
-            # gen_set =   else set()
-            # if block_id in gen.keys():
-            #     for var in gen[block_id].keys():
-            #         val_list = list(gen[block_id][var])
-            # kill_set = set(kill[block_id]) if block_id in kill.keys() else set()
 
             # extrai quais variaveis sao comuns ao kill e gen
             same_var = kill[block_id].keys() & gen[block_id].keys()
-
+            # caso houver variavei comuns, obtem novo out
             if same_var:
                 for var in same_var:
                     # gen é uma variavel, logo precisa ser posto em uma lista
@@ -192,31 +191,31 @@ class AnalyzeOptimaze:
                         _out[block_id][var] = list(gen_set.union(in_set.difference(kill_set)))
                     else:
                         _out[block_id] = {var: list(gen_set.union(in_set.difference(kill_set)))}
-            # in_set = set(_in[block_id])
-            # _out[block_id] = gen_set.union(in_set.difference(kill_set))
-            # succesor
+            # verifica se houve mudança ou o resultado convergiu
             if old_out != _out[block_id]:
                 if block_id in successors.keys():
                     for suc in successors[block_id]:
                         changed.append(suc)
-
-        print(f"in {_in} out {_out}")
+        # printa resultado
+        print("BLOCK\tIN\t\tOUT")
+        for blockin, blockout in zip(_in.keys(), _out.keys()):
+            print(f"{blockin}\t{_in[blockin]} \t\t {_out[blockout]}")
 
     #########################
-    #   Liveness Analysis   #  
+    #   Liveness Analysis   #
     #########################
 
     def liveness_anal(self):
         """ .funcao que realiza o liveness analysis
-            .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os in's e out's 
-            .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os use e defs 
+            .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os in's e out's
+            .retorna uma lista que cada item é um dict contendo o bloco como chave e uma lista com os use e defs
         """
         cfgs_inout = []
         # inicializa com um dict vazio, pois a primeira posicao é um bloco dos globais
         cfgs_inout.append({})
 
         # 1. achar o gen e kill de cada bloco em todas as CFG
-        #       estrutura: [{},{label:[[gen],[kill]]}, ...] 
+        #       estrutura: [{},{label:[[gen],[kill]]}, ...]
         #       cada dict é uma CFG, cada key é label do bloco, cada key guarda uma lista com duas listas gen e kill
         cfgs_genkill = self._getGenKill()
         #print(cfgs_genkill[1][18])
@@ -228,7 +227,7 @@ class AnalyzeOptimaze:
             aux = in_out.copy()
             cfgs_inout.append(aux)
             in_out.clear()
-    
+
         return cfgs_inout, cfgs_genkill
 
 
@@ -270,7 +269,7 @@ class AnalyzeOptimaze:
             predecessors.clear()
 
             block = block.next_block
-        
+
         #   inicializa todos os blocos com duas listas vazias [in] e [out]
         for block in worklist:
             cfg_inout[block] = [[],[]]
@@ -283,11 +282,11 @@ class AnalyzeOptimaze:
         #   cfg_genkill[n][0] -> gen[n] e cfg_genkill[n][1] -> kill[n]
         while worklist:
             # let n = w.pop()
-            n = worklist.pop()                      
+            n = worklist.pop()
             # old_in = in[n]
-            old_in = cfg_inout[n][0]                
+            old_in = cfg_inout[n][0]
             # out[n] := Un'insucc[n] in[n1]
-            auxin = []                     
+            auxin = []
             for succ_in in succ[n]:
                 auxin = list(set(auxin) | set(cfg_inout[succ_in][0]))
             cfg_inout[n][1] = auxin.copy()
@@ -306,23 +305,23 @@ class AnalyzeOptimaze:
         # lista em que cada item é um dict da forma 'block_label': [[gen],[kill]]
         # portanto, cada item representa uma CFG
         cfgs_genkill = []
-        
+
         # estrutura para armazenar os gen/kill de cada bloco
         block_gen = []
         block_kill = []
         labelGK = {}
 
-        #find gen kill      
+        #find gen kill
         for cfg in self.CFGs:                                   # percorre cada cfg (cada funcao) do programa
             if cfg.label == 'Globals':
                 pass
             else:
                 # cada cfg é um "ponteiro" do primeiro bloco dela
                 block = cfg
-                
-                while block:                                    # percorre cada bloco da cfg         
+
+                while block:                                    # percorre cada bloco da cfg
                     labelGK[block.label] = []
-                   
+
                     for instr in block.instructions:            # percorre cada instrucao da cfg
                         kill = self._getKill_live(instr)
                         if kill and (kill not in block_kill):
@@ -343,7 +342,7 @@ class AnalyzeOptimaze:
                     block_kill.clear()
 
                     block = block.next_block
-            
+
             auxdict = labelGK.copy()
             cfgs_genkill.append(auxdict)
             labelGK.clear()
@@ -359,14 +358,14 @@ class AnalyzeOptimaze:
         gen = None
 
         if 'load' in instr[1][0]:
-            gen = instr[1][1]            
+            gen = instr[1][1]
         elif 'param' in instr[1][0]:
             pass
         elif 'print' in instr[1][0]:
             pass
         elif 'call' in instr[1][0]:
             pass
-        
+
         return gen
 
     def _getKill_live(self, instr):
