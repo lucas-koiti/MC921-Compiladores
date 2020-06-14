@@ -3,17 +3,17 @@ class AnalyzeOptimaze:
     def __init__(self, cfg_list):
         # CFG divididas por funcoes
         self.CFGs = cfg_list
-        # codigo optimal gerado no arquivo .opt pelo uc.py
+        # codigo gerado no arquivo .opt pelo uc.py
         self.optcode = ''
 
-        # codigo optimal gerado como tupla para ser interpretador no interpreter.py
+        # codigo gerado como tupla para ser interpretador no interpreter.py
         self.code = []
 
 
     def optmize(self): # classe de teste por enquanto, no futuro aplica as otimizacoes e gera codigo
         """ .realiza as otimizacoes no codigo alterando o valor no bloco
             .atravessa cada bloco armazenando o novo codigo
-            .retorna o novo codigo em forma de string para emitir o arquivo .opt
+            .retorna o novo codigo em forma de string para emitir no arquivo .opt
         """
         reach_gen_kill = self.get_gen_kill_RD()
         RD_in_out = {}
@@ -25,7 +25,8 @@ class AnalyzeOptimaze:
             if RD_gen and RD_kill:
                 RD_in_out[cfg_id] = self.reachingDefinitions(block, RD_gen, RD_kill)
 
-        #self.deadcode()
+        #realiza o deadcode elimination
+        self.deadcode()
 
         # funcao que atravessa os blocos armazenando as intrucoes no self.optcode e self.code
         # self.opt_fileandcode()
@@ -62,10 +63,8 @@ class AnalyzeOptimaze:
             gens = {}
             # kill é todas as defs de alguma variavel menos a que foi atribuida na linha sendo itarada
             kills = {}
-            self.blocks_amt[cfg_count] = 0
             print(f"\n---------CFG {cfg_count}----------")
             while block:
-                self.blocks_amt[cfg_count] += 1
                 print(f"Bloco {block.label}")
                 print("Predecessors: ", end='')
                 if block.predecessors:
@@ -93,7 +92,6 @@ class AnalyzeOptimaze:
                     gens[block_id] = gen_block
                 # obtem proximo bloco
                 block = block.next_block
-            print(f"CFG COM {self.blocks_amt[cfg_count]} BLOCOS")
 
             # Calcula Kill
             for block_id in gens.keys():
@@ -216,7 +214,6 @@ class AnalyzeOptimaze:
         #       estrutura: [{},{label:[[gen],[kill]]}, ...]
         #       cada dict é uma CFG, cada key é label do bloco, cada key guarda uma lista com duas listas gen e kill
         cfgs_genkill = self._getGenKill()
-        #print(cfgs_genkill[1][18])
 
         # 2. worklist para definir os in's e out's
         #       in_out é um dict contendo como key o label do bloco e valor uma lista [[in],[out]]
@@ -273,7 +270,12 @@ class AnalyzeOptimaze:
             cfg_inout[block] = [[],[]]
 
         #   inicia a lista [out] dos blocos de saida com todas as variáveis globais
-        # TODO
+        block = cfg
+        while block:
+            if block.kind == -1 or block.kind == 0:
+                for instr in self.CFGs[0]:
+                    cfg_inout[block.label][1].append(instr[1][1])
+            block = block.next_block
 
         #   enquanto houver blocos para serem analisados
         #   cfg_inout[n][0] -> in[n] e cfg_inout[n][1] -> out[n]
@@ -328,7 +330,7 @@ class AnalyzeOptimaze:
                                 block_gen.remove(kill)
                         gen = self._getGen_live(instr)
                         if gen and (gen not in block_gen):
-                            block_gen.append(gen)
+                            block_gen += gen
 
                     auxgen = block_gen.copy()
                     auxkill = block_kill.copy()
@@ -353,16 +355,19 @@ class AnalyzeOptimaze:
             .retorna o GEN dela
             .use
         """
-        gen = None
+        gen = []
 
-        if 'load' in instr[1][0]:
-            gen = instr[1][1]
+        if 'load' in instr[1][0] and '*' not in instr[1][0]:
+            if not instr[1][0][-1].isnumeric():
+                gen.append(instr[1][1])
         elif 'param' in instr[1][0]:
             pass
         elif 'print' in instr[1][0]:
             pass
         elif 'call' in instr[1][0]:
-            pass
+            gen.append(instr[1][1])
+            for inst in self.CFGs[0]:
+                gen.append(inst[1][1])
 
         return gen
 
@@ -373,12 +378,14 @@ class AnalyzeOptimaze:
         """
         kill = None
 
-        if 'store' in instr[1][0]:
-            kill = instr[1][2]
+        if 'store' in instr[1][0] and '*' not in instr[1][0]:
+            if not instr[1][0][-1].isnumeric():
+                kill = instr[1][2]
         elif 'read' in instr[1][0]:
             pass
 
         return kill
+
 
     #############################
     #   Dead Code Elimination   #
@@ -389,18 +396,56 @@ class AnalyzeOptimaze:
             .altera o codigo otimizando-o
         """
         liveness, usedef = self.liveness_anal()
-        print(liveness)
-        print(usedef)
+        # print(liveness)
+        # print(usedef)
 
         for i in range(1, len(self.CFGs)):
+            # primeiro, identifica unreachable code
             firstblock = self.CFGs[i]
             block = firstblock
+            while block:
+                if block.kind == 0:
+                    _return = -1
+                    _rmvlist = []
+                    for instr in block.instructions:
+                        if 'return' in instr[1][0]:
+                            block.kind = -1
+                            _return = instr[0]
+                        elif instr[0] > _return and _return != -1:
+                            _rmvlist.append(instr)
+
+                    for instr in _rmvlist:
+                        block.instructions.remove(instr)
+                    _rmvlist.clear()
+                block = block.next_block
+
+            # segundo, identifica dead code
+            firstblock = self.CFGs[i]
+            block = firstblock
+            _rmvlist = []
             while block:
                 for instr in block.instructions:
                     if 'store' in instr[1][0]:
                         if instr[1][2] in usedef[i][block.label][1]:
-                            if instr[1][2] not in liveness[i][block.label][1]:
-                                print(instr)
+                            if instr[1][2] not in liveness[i][block.label][1] and instr[1][2] not in usedef[i][block.label][
+                                0]:
+                                _rmvlist.append(instr)
+
+                _tagged = []
+                for dead in _rmvlist:
+                    _tagged.append(dead[1][2])
+
+                for instr in block.instructions:
+                    for tag in _tagged:
+                        if tag in instr[1]:
+                            if instr not in _rmvlist:
+                                _rmvlist.append(instr)
+
+                for instr in _rmvlist:
+                    block.instructions.remove(instr)
+
+                _rmvlist.clear()
+                _tagged.clear()
 
                 block = block.next_block
 
