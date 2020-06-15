@@ -1,12 +1,12 @@
 Program: 
     FuncDef: 
         Type: ['int']   @ 1:1
-        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7fe7318bf8e0>,  type=None  )
+        Decl: ID(name='main',  coord=<uc_ast.Coord object at 0x7f3ffa5d7970>,  type=None  )
             FuncDecl: 
                 VarDecl: 
                     Type: ['int']   @ 1:1
         Compound:    @ 1:1
-            Decl: ID(name='v',  coord=<uc_ast.Coord object at 0x7fe7318bfac0>,  type=None  )
+            Decl: ID(name='v',  coord=<uc_ast.Coord object at 0x7f3ffa5d7b50>,  type=None  )
                 ArrayDecl: 
                     VarDecl: 
                         Type: ['int']   @ 2:5
@@ -16,25 +16,25 @@ Program:
                     Constant: int, 3   @ 2:22
                     Constant: int, 4   @ 2:25
                     Constant: int, 5   @ 2:28
-            Decl: ID(name='c',  coord=<uc_ast.Coord object at 0x7fe731803910>,  type=None  )
+            Decl: ID(name='c',  coord=<uc_ast.Coord object at 0x7f3ffa5929a0>,  type=None  )
                 ArrayDecl: 
                     VarDecl: 
                         Type: ['char']   @ 3:5
                 Constant: string, "xpto"   @ 3:16
-            Decl: ID(name='w',  coord=<uc_ast.Coord object at 0x7fe7318039d0>,  type=None  )
+            Decl: ID(name='w',  coord=<uc_ast.Coord object at 0x7f3ffa592a60>,  type=None  )
                 ArrayDecl: 
                     VarDecl: 
                         Type: ['char']   @ 4:5
                     Constant: int, 4   @ 4:12
-            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7fe731803a90>,  type=None  )
+            Decl: ID(name='i',  coord=<uc_ast.Coord object at 0x7f3ffa592b20>,  type=None  )
                 VarDecl: 
                     Type: ['int']   @ 5:5
                 Constant: int, 2   @ 5:13
-            Decl: ID(name='j',  coord=<uc_ast.Coord object at 0x7fe731803580>,  type=None  )
+            Decl: ID(name='j',  coord=<uc_ast.Coord object at 0x7f3ffa592610>,  type=None  )
                 VarDecl: 
                     Type: ['int']   @ 5:5
                 Constant: int, 3   @ 5:20
-            Decl: ID(name='k',  coord=<uc_ast.Coord object at 0x7fe731803a60>,  type=None  )
+            Decl: ID(name='k',  coord=<uc_ast.Coord object at 0x7f3ffa592af0>,  type=None  )
                 VarDecl: 
                     Type: ['int']   @ 5:5
                 Constant: int, 4   @ 5:27

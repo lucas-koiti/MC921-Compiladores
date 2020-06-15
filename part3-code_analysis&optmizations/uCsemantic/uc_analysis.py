@@ -15,21 +15,15 @@ class AnalyzeOptimaze:
             .atravessa cada bloco armazenando o novo codigo
             .retorna o novo codigo em forma de string para emitir no arquivo .opt
         """
-        reach_gen_kill = self.get_gen_kill_RD()
-        RD_in_out = {}
-        for cfg_id, block in enumerate(self.CFGs):
-            RD_gen = reach_gen_kill[cfg_id]['gen']
-            RD_kill = reach_gen_kill[cfg_id]['kill']
-            # TODO verificar se gen e kill nulos garantem in e out nulos
-            print(f"\t=== CFG {cfg_id} ===")
-            if RD_gen and RD_kill:
-                RD_in_out[cfg_id] = self.reachingDefinitions(block, RD_gen, RD_kill)
+        
+        #realiza o constant propagation
+        self.constantprop()
 
         #realiza o deadcode elimination
         self.deadcode()
 
         # funcao que atravessa os blocos armazenando as intrucoes no self.optcode e self.code
-        # self.opt_fileandcode()
+        self.opt_fileandcode()
 
         return self.optcode
 
@@ -46,10 +40,46 @@ class AnalyzeOptimaze:
                     self.optcode += f"{str(instr[1])}\n"
                 block = block.next_block
 
+
+    ############################
+    #   Constant Propagation   #
+    ############################
+    def constantprop(self):
+        reach_gen_kill, defs = self.get_gen_kill_RD()
+        #print(defs)
+        literals = {}
+        for cfg in self.CFGs:
+            block = cfg
+            while block:
+                for instr in block.instructions:
+                    if 'literal' in instr[1][0]:
+                        literals[instr[1][2]] = instr[1]
+                block = block.next_block
+        #print(literals) 
+        RD_in_out = {}
+        for cfg_id, block in enumerate(self.CFGs):
+            RD_gen = reach_gen_kill[cfg_id]['gen']
+            RD_kill = reach_gen_kill[cfg_id]['kill']
+            
+            if RD_gen and RD_kill:
+                RD_in_out[cfg_id] = self.reachingDefinitions(block, RD_gen, RD_kill)
+            
+            #print(RD_in_out[cfg_id])
+
+        i = 0
+        for cfg in self.CFGs:
+            block = cfg
+            while block:
+                for instr in block.instructions:
+                    if 'load' in instr[1][0]:
+                        if instr[1][1] in RD_in_out[i]['out'][block.label].keys():
+                            print('possivel constant propag: ', instr)
+                block = block.next_block
+            i += 1
+
     ############################
     #   Reaching Definitions   #
     ############################
-
     def get_gen_kill_RD(self):
         """
             obtenca dos dicionarios gen e kill para REACHING DEFINITIONS
@@ -63,31 +93,32 @@ class AnalyzeOptimaze:
             gens = {}
             # kill é todas as defs de alguma variavel menos a que foi atribuida na linha sendo itarada
             kills = {}
-            print(f"\n---------CFG {cfg_count}----------")
+            #print(f"\n---------CFG {cfg_count}----------")
             while block:
-                print(f"Bloco {block.label}")
-                print("Predecessors: ", end='')
-                if block.predecessors:
-                    for pred in block.predecessors:
-                        print(pred.label, end=' ')
-                    print()
+                #print(f"Bloco {block.label}")
+                #print("Predecessors: ", end='')
+                #if block.predecessors:
+                #    for pred in block.predecessors:
+                #        print(pred.label, end=' ')
+                #    print()
                 # bloco de globais é referido pelo indice 0
                 block_id = block.label if isinstance(block.label, int) else 0
                 # dicionario para captacao dos gens
                 gen_block = {}
                 # e todas suas instrucoes
                 for inst in block.instructions:
-                    print(f"\t{inst}")
+                    #print(f"\t{inst}")
                     # qualquer store adiciona a variavel em questao no gen[]
-                    if inst[1][0].find('store_') != -1:
+                    # TODO check errors here
+                    if inst[1][0].find('store_') != -1 and '*' not in inst[1][0]:
                         attr_var = inst[1][2]
                         # adiciona na ultima lista vazia criada
                         gen_block[attr_var] = inst[0]
                         # guarda a variavel e a linha que foi atribuida
                         if attr_var in defs.keys():
-                            defs[attr_var].append(inst[0])
+                            defs[attr_var].append(inst[1])
                         else:
-                            defs[attr_var] = [inst[0]]
+                            defs[attr_var] = [inst[1]]
                     # salva o gen do bloco
                     gens[block_id] = gen_block
                 # obtem proximo bloco
@@ -109,7 +140,7 @@ class AnalyzeOptimaze:
                 # salva o kill do bloco
                 kills[block_id] = kill_block
 
-            print("###### defs ######")
+            """print("###### defs ######")
             for var in defs.keys():
                 print(f"var: {var} linhas: {defs[var]}")
             print("###################")
@@ -117,11 +148,12 @@ class AnalyzeOptimaze:
             for block in kills.keys():
                 print(f"Bloco {block} ")
                 print(f"\tgen : {gens[block]}")
-                print(f"\tkill : {kills[block]}")
+                print(f"\tkill : {kills[block]}")"""
             # guarda gen e kill relativo aos cfgs
+           
             cfg_gen_kill[cfg_count] = {'gen' : gens, 'kill' : kills}
 
-        return cfg_gen_kill
+        return cfg_gen_kill, defs
 
 
     def reachingDefinitions(self, block_head, gen, kill):
@@ -449,5 +481,4 @@ class AnalyzeOptimaze:
 
                 block = block.next_block
 
-    """ Available Expressions """
 
