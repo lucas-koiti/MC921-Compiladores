@@ -45,37 +45,143 @@ class AnalyzeOptimaze:
     #   Constant Propagation   #
     ############################
     def constantprop(self):
+        """ .calcula o gen/kill de todos os blocos em todas as cfgs
+            .define quem sao os temporarios dos literais
+            .realiza o reaching definitions
+            .elimina as instrucoes de load do literal para a variavel
+            .substitui os valores que sofriam load var -> temp, para temp = literal
+        """
+        # calcula os gens/kills e def de todas CFGs
         reach_gen_kill, defs = self.get_gen_kill_RD()
-        #print(defs)
+        
+        # define os literais
+        list_literals = []
         literals = {}
-        for cfg in self.CFGs:
-            block = cfg
-            while block:
-                for instr in block.instructions:
-                    if 'literal' in instr[1][0]:
-                        literals[instr[1][2]] = instr[1]
-                block = block.next_block
-        #print(literals) 
-        RD_in_out = {}
-        for cfg_id, block in enumerate(self.CFGs):
-            RD_gen = reach_gen_kill[cfg_id]['gen']
-            RD_kill = reach_gen_kill[cfg_id]['kill']
-            
-            if RD_gen and RD_kill:
-                RD_in_out[cfg_id] = self.reachingDefinitions(block, RD_gen, RD_kill)
-            
-            #print(RD_in_out[cfg_id])
-
         i = 0
         for cfg in self.CFGs:
             block = cfg
             while block:
                 for instr in block.instructions:
+                    if 'literal' in instr[1][0]:
+                        literals[instr[1][2]] = instr[1][1]
+                block = block.next_block
+            list_literals.append(literals.copy())
+            literals.clear()
+        
+        # faz um match entre a variavel e o temporario do literal
+        constants = []
+        _cte = {}
+        for i in range(len(self.CFGs)):
+            for k in defs[i].keys():
+                for v in defs[i][k]:
+                    if v in list_literals[i].keys():
+                        _cte[k] = v
+            constants.append(_cte.copy())
+            _cte.clear()
+
+        #aplica o reaching definitions para todos os blocos e cfgs
+        RD_in_out = {}
+        for cfg_id, block in enumerate(self.CFGs):
+            RD_gen = reach_gen_kill[cfg_id]['gen']
+            RD_kill = reach_gen_kill[cfg_id]['kill']
+            
+            if cfg_id != 0:
+                if RD_gen and RD_kill:
+                    RD_in_out[cfg_id] = self.reachingDefinitions(block, RD_gen, RD_kill)
+            
+        # identifica as instrucoes que podem ser removidas e as que devem ser alteradas
+        i = 0
+        _rmvdict = {}
+        _rmvlist = []
+        for cfg in self.CFGs:
+            block = cfg
+            while block:
+                for instr in block.instructions:
                     if 'load' in instr[1][0]:
-                        if instr[1][1] in RD_in_out[i]['out'][block.label].keys():
-                            print('possivel constant propag: ', instr)
+                        if instr[1][1] in RD_in_out[i][block.label][1]:
+                            if(len(defs[i][instr[1][1]]) == 1) and instr[1][1] in constants[i].keys():
+                                _rmvdict[instr[1][2]] = instr[1][1]
+                                _rmvlist.append(instr)
+
+                for inst in _rmvlist:
+                    block.instructions.remove(inst)
+                
+                for instr in block.instructions:
+                    for var in _rmvdict.keys():
+                        if var in instr[1]:
+                            _aux = list(instr[1])
+                            for w in range(len(_aux)):
+                                if _aux[w] == var:
+                                    _aux[w] = constants[i][_rmvdict[var]]
+                            _aux = tuple(_aux)
+                            instr[1] = _aux
+                            
+                _rmvdict.clear()
+                _rmvlist.clear()
                 block = block.next_block
             i += 1
+
+    #############################
+    #   Dead Code Elimination   #
+    #############################
+    def deadcode(self):
+        """ .realiza a liveness analysis
+            .para cada bloco analisa se ha deadcode
+            .altera o codigo otimizando-o
+        """
+        liveness, usedef = self.liveness_anal()
+        #print(liveness)
+        #print(usedef)
+
+        for i in range(1, len(self.CFGs)):
+            # primeiro, identifica unreachable code
+            firstblock = self.CFGs[i]
+            block = firstblock
+            while block:
+                if block.kind == 0:
+                    _return = -1
+                    _rmvlist = []
+                    for instr in block.instructions:
+                        if 'return' in instr[1][0]:
+                            block.kind = -1
+                            _return = instr[0]
+                        elif instr[0] > _return and _return != -1:
+                            _rmvlist.append(instr)
+
+                    for instr in _rmvlist:
+                        block.instructions.remove(instr)
+                    _rmvlist.clear()
+                block = block.next_block
+
+            # segundo, identifica dead code
+            firstblock = self.CFGs[i]
+            block = firstblock
+            _rmvlist = []
+            while block:
+                for instr in block.instructions:
+                    if 'store' in instr[1][0]:
+                        if instr[1][2] in usedef[i][block.label][1]:
+                            if instr[1][2] not in liveness[i][block.label][1] and instr[1][2] not in usedef[i][block.label][0]:
+                                _rmvlist.append(instr)
+
+                _tagged = []
+                for dead in _rmvlist:
+                    _tagged.append(dead[1][2])
+
+                for instr in block.instructions:
+                    for tag in _tagged:
+                        if tag in instr[1]:
+                            if instr not in _rmvlist:
+                                _rmvlist.append(instr)
+
+                for instr in _rmvlist:
+                    block.instructions.remove(instr)
+
+                _rmvlist.clear()
+                _tagged.clear()
+
+                block = block.next_block
+
 
     ############################
     #   Reaching Definitions   #
@@ -85,6 +191,7 @@ class AnalyzeOptimaze:
             obtenca dos dicionarios gen e kill para REACHING DEFINITIONS
         """
         cfg_gen_kill = {}
+        list_defs = []
         # itera todas cfgs e obtem o gen[]
         for cfg_count, block in enumerate(self.CFGs, 0):
             # defs é um dicionario com todas as variaveis declaradas e sua de linhas onde foram declaradas
@@ -93,32 +200,25 @@ class AnalyzeOptimaze:
             gens = {}
             # kill é todas as defs de alguma variavel menos a que foi atribuida na linha sendo itarada
             kills = {}
-            #print(f"\n---------CFG {cfg_count}----------")
-            while block:
-                #print(f"Bloco {block.label}")
-                #print("Predecessors: ", end='')
-                #if block.predecessors:
-                #    for pred in block.predecessors:
-                #        print(pred.label, end=' ')
-                #    print()
+            
+            while block:   
                 # bloco de globais é referido pelo indice 0
                 block_id = block.label if isinstance(block.label, int) else 0
                 # dicionario para captacao dos gens
                 gen_block = {}
                 # e todas suas instrucoes
                 for inst in block.instructions:
-                    #print(f"\t{inst}")
                     # qualquer store adiciona a variavel em questao no gen[]
-                    # TODO check errors here
                     if inst[1][0].find('store_') != -1 and '*' not in inst[1][0]:
-                        attr_var = inst[1][2]
-                        # adiciona na ultima lista vazia criada
-                        gen_block[attr_var] = inst[0]
-                        # guarda a variavel e a linha que foi atribuida
-                        if attr_var in defs.keys():
-                            defs[attr_var].append(inst[1])
-                        else:
-                            defs[attr_var] = [inst[1]]
+                        if not inst[1][0][-1].isnumeric():
+                            attr_var = inst[1][2]
+                            # adiciona na ultima lista vazia criada
+                            gen_block[attr_var] = inst[0]
+                            # guarda a variavel e a linha que foi atribuida
+                            if attr_var in defs.keys():
+                                defs[attr_var].append(inst[1][1])
+                            else:
+                                defs[attr_var] = [inst[1][1]]
                     # salva o gen do bloco
                     gens[block_id] = gen_block
                 # obtem proximo bloco
@@ -140,94 +240,95 @@ class AnalyzeOptimaze:
                 # salva o kill do bloco
                 kills[block_id] = kill_block
 
-            """print("###### defs ######")
-            for var in defs.keys():
-                print(f"var: {var} linhas: {defs[var]}")
-            print("###################")
-            print("======== Gen Kill ========")
-            for block in kills.keys():
-                print(f"Bloco {block} ")
-                print(f"\tgen : {gens[block]}")
-                print(f"\tkill : {kills[block]}")"""
+            
             # guarda gen e kill relativo aos cfgs
-           
             cfg_gen_kill[cfg_count] = {'gen' : gens, 'kill' : kills}
+            list_defs.append(defs.copy())
+            defs.clear()
 
-        return cfg_gen_kill, defs
+        return cfg_gen_kill, list_defs
 
 
     def reachingDefinitions(self, block_head, gen, kill):
         """ Função que executa a analise de reaching defintions nas CFGs obtidas.
         """
-        # inicializa uma variavel com todos os blocos para facilitar o acesso
-        blocks = {}
-        successors = {}
-        changed = []
-        _out = {}
-        _in = {}
-        # monta dicionario com todos os blocos
-        while block_head:
-            block_id = block_head.label if isinstance(block_head.label, int) else 0
-            blocks[block_id] = block_head
-            changed.append(block_head)
-            successors[block_id] = []
-            _in[block_id] = {}
-            _out[block_id] = {}
+        # tratando a estrutura
+        _gen = {}
+        _genaux = []
+        for i in gen.keys():
+            for k in gen[i].keys():
+                _genaux.append(k)
+            _gen[i] = _genaux.copy()
+            _genaux.clear()
+        
+        _kill = {}
+        _killaux = []
+        for i in kill.keys():
+            for k in kill[i].keys():
+                _killaux.append(k)
+            _kill[i] = _killaux.copy()
+            _killaux.clear()
+        
+        #   inicializa a lista worklist com os labels de todos os blocos
+        #   inicializa um dict com o label dos sucessores de um bloco (e.g. dict[bloco.label] = [succs])
+        #   inicializa um dict com o label dos predecessores de um bloco
+        worklist = []
+        succ = {}
+        successors = []
+        pred = {}
+        predecessors = []
+        block = block_head
+        while block:
+            worklist.append(block.label)
+            # successors
+            if block.branch:
+                successors.append(block.branch.label)
+            if block.truelabel:
+                successors.append(block.truelabel.label)
+            if block.falselabel:
+                successors.append(block.falselabel.label)
+            succ[block.label] = successors.copy()
+            successors.clear()
+            # predecessors
+            for p in block.predecessors:
+                predecessors.append(p.label)
+            pred[block.label] = predecessors.copy()
+            predecessors.clear()
 
-            # obtem successors
-            if block_head.branch:
-                successors[block_id].append(block_head.branch)
-            if block_head.truelabel:
-                successors[block_id].append(block_head.truelabel)
-            if block_head.falselabel:
-                successors[block_id].append(block_head.falselabel)
-            block_head = block_head.next_block
+            block = block.next_block
+        
+        # inicializa o IN e OUT como zero
+        _inout = {}
+        for l in worklist:
+            _inout[l] = [[],[]]
+        
+        # _inout[n] => in[n] = _inout[n][0] 
+        #              out[n] = _inout[n][1]
+        while worklist:
+            n = worklist.pop()
 
-        # enquanto houver mudança nos valores
-        while changed:
-            # obtem bloco a ser iterado
-            block = changed.pop()
-            block_id = block.label if isinstance(block.label, int) else 0
-            # calcula novo in
-            new_in = {}
-            for pred in block.predecessors:
-                pred_id = pred.label if isinstance(pred.label, int) else 0
-                # same_var = _in[block_id].keys() & _out[pred_id].keys()
-                for var in _out[pred_id].keys():
-                    if var in new_in.keys():
-                        new_in[var].append(_out[pred_id][var])
-                    else:
-                        new_in[var] = _out[pred_id][var]
-            # registra novo in
-            _in[block_id] = new_in
+            _inaux = []
+            # for all nodes p in predecessors(n) 
+            for p in pred[n]:
+                # in[n] = in[n] U out[p]
+                _inaux = list(set(_inaux) | set(_inout[p][1]))
+            _inout[n][0] = _inaux.copy()
+            _inaux.clear()
 
-            # salva out antigo para checagem de mudança
-            old_out = _out[block_id]
+            # oldout = OUT[n]
+            _oldout = _inout[n][1]
 
-            # extrai quais variaveis sao comuns ao kill e gen
-            same_var = kill[block_id].keys() & gen[block_id].keys()
-            # caso houver variavei comuns, obtem novo out
-            if same_var:
-                for var in same_var:
-                    # gen é uma variavel, logo precisa ser posto em uma lista
-                    gen_set = set([gen[block_id][var]])
-                    kill_set = set(kill[block_id][var])
-                    in_set = set(_in[block_id][var]) if var in _in[block_id] else set()
-                    if var in _out[block_id].keys():
-                        _out[block_id][var] = list(gen_set.union(in_set.difference(kill_set)))
-                    else:
-                        _out[block_id] = {var: list(gen_set.union(in_set.difference(kill_set)))}
-            # verifica se houve mudança ou o resultado convergiu
-            if old_out != _out[block_id]:
-                if block_id in successors.keys():
-                    for suc in successors[block_id]:
-                        changed.append(suc)
-        # printa resultado
-        print("BLOCK\tIN\t\tOUT")
-        for blockin, blockout in zip(_in.keys(), _out.keys()):
-            print(f"{blockin}\t{_in[blockin]} \t\t {_out[blockout]}")
+            # OUT[n] = GEN[n] Union (IN[n] -KILL[n])
+            _inout[n][1] = list(set(_gen[n]) | set([v for v in _inout[n][0] if v not in _kill[n]]))
 
-        return {"in": _in, "out" : _out}
+            # if (OUT[n] changed)
+            if _inout[n][1] != _oldout:
+                # for all nodes s in successors(n) 
+                for s in succ[n]:
+                    # Changed = Changed U { s }
+                    worklist.append(s)
+
+        return _inout
 
     #########################
     #   Liveness Analysis   #
@@ -417,68 +518,5 @@ class AnalyzeOptimaze:
             pass
 
         return kill
-
-
-    #############################
-    #   Dead Code Elimination   #
-    #############################
-    def deadcode(self):
-        """ .realiza a liveness analysis
-            .para cada bloco analisa se ha deadcode
-            .altera o codigo otimizando-o
-        """
-        liveness, usedef = self.liveness_anal()
-        # print(liveness)
-        # print(usedef)
-
-        for i in range(1, len(self.CFGs)):
-            # primeiro, identifica unreachable code
-            firstblock = self.CFGs[i]
-            block = firstblock
-            while block:
-                if block.kind == 0:
-                    _return = -1
-                    _rmvlist = []
-                    for instr in block.instructions:
-                        if 'return' in instr[1][0]:
-                            block.kind = -1
-                            _return = instr[0]
-                        elif instr[0] > _return and _return != -1:
-                            _rmvlist.append(instr)
-
-                    for instr in _rmvlist:
-                        block.instructions.remove(instr)
-                    _rmvlist.clear()
-                block = block.next_block
-
-            # segundo, identifica dead code
-            firstblock = self.CFGs[i]
-            block = firstblock
-            _rmvlist = []
-            while block:
-                for instr in block.instructions:
-                    if 'store' in instr[1][0]:
-                        if instr[1][2] in usedef[i][block.label][1]:
-                            if instr[1][2] not in liveness[i][block.label][1] and instr[1][2] not in usedef[i][block.label][
-                                0]:
-                                _rmvlist.append(instr)
-
-                _tagged = []
-                for dead in _rmvlist:
-                    _tagged.append(dead[1][2])
-
-                for instr in block.instructions:
-                    for tag in _tagged:
-                        if tag in instr[1]:
-                            if instr not in _rmvlist:
-                                _rmvlist.append(instr)
-
-                for instr in _rmvlist:
-                    block.instructions.remove(instr)
-
-                _rmvlist.clear()
-                _tagged.clear()
-
-                block = block.next_block
 
 
